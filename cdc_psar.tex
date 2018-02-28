@@ -1,15 +1,16 @@
-\documentclass[12pt]{article}
+\documentclass[14pt]{article}
+\usepackage[french]{babel}
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
 \usepackage[cache=false]{minted}
 \usemintedstyle{friendly}
 
 
-\title{Cahier des charges}
+\title{Cahier des charges\\-\\\'Editeur de Fichiers Coopératif et Réparti}
 
-\author{Corentin LEVY\\
+\author{Corentin LEVY\\3770522\\
 		\and
-		Bastien MASSON}
+		Bastien MASSON\\3502283}
 
 \date{06 mars 2018}
 
@@ -25,11 +26,107 @@ Encadré par Pierre Sens
 Le but de ce projet est de développer un éditeur de fichiers coopératif et réparti permettant à un ensemble d'utilisateurs de travailler simultanément sur un même document. Ce projet est donc découpé en deux parties : un serveur de fichiers ainsi qu'un mini-éditeur de fichiers. Le projet sera réalisé intégralement en langage C.
 
 \end{titlepage}
-Coucou
-\begin{minted}{C}
-int main(){
-	printf("");
-}
-\end{minted}
+\tableofcontents
+\newpage
+\section{Besoins}
+Cette section décrira précisément ce qui est attendu dans ce projet.\\
+
+Comme dit précédemment, il s'agit de réaliser un éditeur de fichiers, qui possède la particularité d'être coopératif (et donc réparti), c'est à dire que plusieurs utilisateurs peuvent travailler en même temps sur le même document. Un exemple concret d'un tel éditeur est \textbf{Google Docs}.\\
+
+Le projet est donc découpé en deux parties majeures : un serveur de fichiers, ainsi qu'un mini-éditeur de texte.\\
+
+Le serveur de fichiers est dit "centralisé" (serveur maître). Lancé sur une seule machine, son rôle est d'enregistrer les fichiers des éditeurs sur le disque, de répondre à leurs requêtes selon un protocole défini à l'avance, et enfin, implémenter une politique de cohérence pour les fichiers.
+La politique de cohérence sera la suivante :\\
+\begin{itemize}
+\item UPDATE : Après chaque modification d'une ligne, la ligne sera renvoyée par le serveur à tous les clients qui ont ouvert ce fichier.\\
+\end{itemize}
+
+De plus, chaque éditeur maintiendra localement une copie locale des fichiers en cours d'utilisation par l'utilisateur. Pour assurer la cohérence des données, il faudra implémenter un mécanisme de verrouillage de ligne : lorsqu'une ligne est en cours d'édition, les autres clients ne peuvent pas la mofifier.\\
+
+L'interface du mini-éditeur de texte permettra de :
+\begin{itemize}
+\item Créer un fichier;
+\item Supprimer un fichier;
+\item Lire un fichier;
+\item Modifier (ligne par ligne) un fichier.\\
+\end{itemize}
+Cet éditeur sera contrôlable avec des commandes, un peu à la manière de Vim. Cela est fait pour éviter d'avoir recours à des bibliothèques graphiques trop lourdes qui pourraient impacter le reste du projet.
+Par conséquent on aura a définir non pas un mais deux protocoles. Le premier, totalement invisible pour l'utilisateur, servira à la communication entre le serveur et le client. Le second, visible pour l'utilisateur, servira à contrôler l'éditeur de texte, à la manière de Vim par exemple.
+
+\section{Conditions d'utilisation}
+Notre programme se voudra simple d'utilisation, intuitif et efficace pour l'utilisateur. Il sera utilisable uniquement avec des commandes, c'est à dire qu'il n'y aura pas d'interface utilisable avec la souris par exemple.\\
+
+Un client peut se connecter, éditer des fichiers, demander la liste des fichiers ainsi que la liste de qui est connecté au serveur.\\
+Le serveur quant à lui se contente de répondre aux requêtes des clients, ainsi que d'envoyer à intervalles réguliers des messages de type "ping" à tous les clients sur un deuxième port en broadcast UDP pour vérifier qu'un client est toujours connecté. Cela permet d'éviter qu'un client en panne bloque un fichier pour toujours.\\
+\'Etant donné qu'un message envoyé en UDP n'a aucune certitude d'être reçu, on conviendra d'un nombre arbitraire de messages non reçus au delà duquel un client est considéré comme en panne.
+
+Sera décrit ici un "use case" typique du projet. Toutefois, on ne rentrera pas ici dans les aspects techniques, il s'agit uniquement de décrire un scénario d'utilisation type de notre future application.\\
+
+\textbf{Scénario type} où le client veut créer un fichier, le remplir, l'enregistrer puis quitter (tous les messages échangés entre le serveur et le client suivent le protocole du programme invisible pour le client qui sera défini plus loin, à l'exception de ceux pour éditer le fichier) :
+
+\begin{enumerate}
+\item Le client lance le programme
+\item Le programme se connecte au serveur et indique au client qu'il peut commencer à travailler
+\item Le client envoie un message au serveur pour créer un fichier
+\item Le serveur confirme la bonne création du fichier
+\item Le client envoie un message au serveur pour modifier le fichier créé
+\item Le serveur ouvre le fichier et renvoie son contenu au client en ouvrant l'éditeur de texte
+\item A l'aide de commandes, le client édite le fichier, puis demande au serveur de le sauvegarder
+\item Le serveur confirme la sauvegarde du fichier
+\item Le client quitte le programme
+\item Le serveur nettoie les traces du passage du client en conséquence\\
+\end{enumerate}
+
+\textbf{Scénarios alternatifs :}
+\begin{itemize}
+\item Si un client est déjà connecté et en train d'éditer le même fichier, alors la ligne sur laquelle il est en train de travailler apparaît comme vérouillée pour les autre clients, et donc non modifiable tant que ledit client n'a pas soit quitté, soit envoyé ses modifications au serveur. Le cas d'un panne du client qui verrouille une ligne n'est pas abordé dans cette section.
+\item Si un client veut modifier un fichier qui n'existe pas, le serveur le créé automatiquement en prévenant le client auparavant, à la manière de Vim, Gedit, etc.
+\item Un client ne peut pas bloquer indéfiniment une ligne dans l'hypothèse d'une déconnexion pendant la modification d'une ligne. Si un tel évènement se produit, le client déconnecté est automatiquement relevé de ce qu'il était en train de faire et la ligne est dévérouillée.
+\end{itemize}
+
+\section{Architecture Logicielle}
+\subsection{Choix techniques}
+Comme dit au début de ce document, l'intégralité de ce projet sera réalisé en C. Il y aura deux types d'entités distinctes, les clients et le serveur. Le serveur étant un "maître", il ne pourra exister qu'une seule instance à la fois.\\
+
+\textbf{Général :}
+Chaque entête de requête qui est une demande sera suivie d'un point d'interrogation "?", tandis que chaque entête de requête qui sera une réponse sera suivie d'un point d'exclamation "!".\\
+
+\textbf{Client :}
+Un client est composé de deux ports : un port TCP qui servira aux communications directes avec le serveur, ainsi qu'un port UDP qui servira à recevoir les "ping" du serveur. Chaque client garde en local une copie des fichiers en cours de modification, qui seront supprimés lors de la déconnexion. Ainsi, si lors d'une connexion, le programme
+
+Voici les caractéristiques du protocole utilisé pour la communication dans le sens client - serveur, invisible à l'utilisateur :\\
+
+Chaque message sera composé de la manière suivante :
+\begin{itemize}
+\item Un entête de 3 lettres minuscules représentant le type du message suivit d'un point d'interrogation "?", à l'exception du message de réponse au "ping" du serveur, \textbf{png!}, qui sera suivi d'un point d'exclamation. Ce type peut etre : \textbf{con? qui?, cre?, del?, mod?, lfi?, lst?, png!}, pour respectivement se connecter, quitter, créer, supprimer, modifier un ficher, afficher la liste des fichiers du serveur, afficher les clients connectés au serveur.\\
+Notons qu'il n'y a pas d'entête pour demander à sauvegarder un fichier. C'est en effet inutile, la sauvegarde sera faite à chaque envoi de ligne au serveur.
+%pas besoin de sauvegarder un fichier car on le fait à chaque modif de ligne
+\item Un simple espace, excepté pour \textbf{con?, qui?, lfi?, lst? et png!} qui seront envoyés tels quels.
+\item Un nom de fichier.\\
+\end{itemize}
+Chacun de ses messages sera envoyé à l'initiative de l'utilisateur, à l'exception du \textbf{png!} qui sera une réponse automatique à un message du serveur vérifiant que le client est toujours connecté correctement.\\
+
+\textbf{Serveur :}
+Un serveur est composé de deux ports : un port TCP pour accepter les connexions, et un port UDP en broadcast utilisé pour envoyer des "ping" aux clients. Le serveur 
+%connexion, copie locale des fichiers. si déco pui reco, cherche fichier temp et demande si il veut uploader en montrant avant les infos du fichier actuellement sur le serveur (ex: derniere modif 2/3/18 par Jean, si c'est Marc qui veut uploader il saura qu'il va ptet effacer des données)
+%protocoleS
+%parler du graphique
+%le serveur doit se souvenir de qui bosse sur quoi tout le temps !
+%choisir entre des threads et select
+\subsection{Découpage du code}
+\subsection{Structures}
+\section{Conditions de validation}
+\subsection{Résultats attendus}
+\subsection{Améliorations potentielles}
+Les améliorations dans cette section seront implémentées dans la mesure du possible. Elles contribueront à avoir un programme plus résistant, plus souple et plus agréable à utiliser. 
+\newpage
+
+Test code :
+\inputminted[
+frame=lines,
+framesep=2mm,
+fontsize=\footnotesize,
+linenos
+]{c}{test_fork.c}
 
 \end{document}

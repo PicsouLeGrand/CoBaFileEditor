@@ -31,7 +31,7 @@ Le but de ce projet est de développer un éditeur de fichiers coopératif et r�
 \section{Besoins}
 Cette section décrira précisément ce qui est attendu dans ce projet.\\
 
-Comme dit précédemment, il s'agit de réaliser un éditeur de fichiers, qui possède la particularité d'être coopératif (et donc réparti), c'est à dire que plusieurs utilisateurs peuvent travailler en même temps sur le même document. Un exemple concret d'un tel éditeur est \textbf{Google Docs}.\\
+Comme dit précédemment, il s'agit de réaliser un éditeur de fichiers, qui possède la particularité d'être coopératif (et donc implicitement réparti), c'est à dire que plusieurs utilisateurs peuvent travailler en même temps sur le même document. Un exemple concret d'un tel éditeur est \textbf{Google Docs}.\\
 
 Le projet est donc découpé en deux parties majeures : un serveur de fichiers, ainsi qu'un mini-éditeur de texte.\\
 
@@ -79,9 +79,9 @@ Sera décrit ici un cas d'utilisation typique du projet. Toutefois, on ne rentre
 
 \textbf{Scénarios alternatifs :}
 \begin{itemize}
-\item Si un client est déjà connecté et en train d'éditer le même fichier, alors la ligne sur laquelle il est en train de travailler apparaît comme vérouillée pour les autre clients, et donc non modifiable tant que ledit client n'a pas soit quitté, soit envoyé ses modifications au serveur. Le cas d'un panne du client qui verrouille une ligne n'est pas abordé dans cette section.
+\item Si un client est déjà connecté et en train d'éditer le même fichier, alors la ligne sur laquelle il est en train de travailler apparaît comme verrouillée pour les autre clients (à l'aide d'un symbole quelconque), et donc non modifiable tant que ledit client n'a pas soit quitté, soit envoyé ses modifications au serveur.
 \item Si un client veut modifier un fichier qui n'existe pas, le serveur le créé automatiquement en prévenant le client auparavant, à la manière de Vim, Gedit, etc.
-\item Un client ne peut pas bloquer indéfiniment une ligne dans l'hypothèse d'une déconnexion pendant la modification d'une ligne. Si un tel évènement se produit, le client déconnecté est automatiquement relevé de ce qu'il était en train de faire et la ligne est dévérouillée.
+\item Un client ne peut pas bloquer indéfiniment une ligne dans l'hypothèse d'une déconnexion pendant la modification d'une ligne. Si un tel évènement se produit, le client déconnecté est automatiquement relevé de ce qu'il était en train de faire et la ligne est dévérouillée. Les modifications du client déconnecté sont sauvegardées dans un fichier spécial, ainsi il pourra récupérer son travail lors de sa reconnexion.
 \end{itemize}
 
 \section{Architecture Logicielle}
@@ -169,13 +169,14 @@ Voici les caractéristiques du protocole utilisé pour la communication dans le 
 
 Chaque message sera composé de la manière suivante :
 \begin{itemize}
-\item Un entête de 3 lettres minuscules représentant le type du message suivi d'un point d'exclamation "!", à l'exception du message de demande aux clients "ping", \textbf{png!}, qui sera suivi d'un point d'interrogation. Ce type peut etre : \textbf{con!, qui!, cre!, del!, mod!, lfi!, lst!, png?, scd!, scu!}, pour respectivement confirmer la connexion, confirmer qu'un client quitte proprement, confirmer la création d'un fichier, confirmer la suppression d'un fichier, confirmer l'ouverture d'un fichier à modifier, renvoyer la liste des fichiers du serveur, renvoyer la liste des clients connectés au serveur, envoyer un "ping" à tous les clients, envoyer la bonne ligne pour que le client navigue le document vers le bas (scroll down), envoyer la bonne ligne pour que le client navigue le document vers le haut (scroll up).
+\item Un entête de 3 lettres minuscules représentant le type du message suivi d'un point d'exclamation "!", à l'exception du message de demande aux clients "ping", \textbf{png!}, qui sera suivi d'un point d'interrogation. Ce type peut etre : \textbf{con!, qui!, cre!, del!, mod!, lfi!, lst!, png?, scd!, scu!, err!}, pour respectivement confirmer la connexion, confirmer qu'un client quitte proprement, confirmer la création d'un fichier, confirmer la suppression d'un fichier, confirmer l'ouverture d'un fichier à modifier, renvoyer la liste des fichiers du serveur, renvoyer la liste des clients connectés au serveur, envoyer un "ping" à tous les clients, envoyer la bonne ligne pour que le client navigue le document vers le bas (scroll down), envoyer la bonne ligne pour que le client navigue le document vers le haut (scroll up), et enfin si une erreur est survenue.
 \item Un simple espace, excepté pour \textbf{con!, qui!, png?} qui seront envoyés tels quels, et pour \textbf{mod!, lfi!, lst!} qui nécessitent un entier collé à l'entête.
 \item \textbf{mod!} est suivi d'un nombre X indiquant le nombre de lignes restant à envoyer. Ce nombre arbitraire X sera défini à l'avance et sera le nombre de lignes maximum à afficher à la fois sur l'écran. Une réponse \textbf{mod!X} sera donc suivie par (X - 1) autres réponses contenant chacunes une ligne à afficher. De cette façon on obtient un affichage du fichier demandé pour le client. On envoie ensuite la réponse.
 \item \textbf{cre!, del!, mod!} sont tous les trois suivis d'un nom de fichier et envoyés tels quels.
 \item \textbf{lfi!, lst!} sont suivis d'un nombre X indiquant le nombre d'éléments restants à envoyer. Une réponse \textbf{lfi!X OU lst!X} sera donc suivie par (X - 1) autres réponses contenant chacunes un élément (soit un fichier soit un utilisateur). On envoie ensuite la réponse.
+\item \textbf{err!} est suivi d'une chaîne de caractères expliquant l'erreur qui est survenue. On envoie ensuite la réponse.
 \end{itemize}
-%connexion, copie locale des fichiers. si déco pui reco, cherche fichier temp et demande si il veut uploader en montrant avant les infos du fichier actuellement sur le serveur (ex: derniere modif 2/3/18 par Jean, si c'est Marc qui veut uploader il saura qu'il va ptet effacer des données)
+
 
 \subsection{Découpage du code}
 Le code sera découpé assez logiquement de la façon suivante, le but étant de rendre une architecture simple et compréhensible qui facilitera la lecture du code, la programmation et le débug :\\
@@ -222,15 +223,26 @@ fontsize=\footnotesize,
 %linenos
 ]{c}{struct_file.c}
 
+Et la structure open\_lines associée :
+\inputminted[
+frame=lines,
+framesep=2mm,
+fontsize=\footnotesize,
+%linenos
+]{c}{struct_open_lines.c}
+
 \section{Conditions de validation}
+On prendra soin de déclarer un fichier de tests s'assurant du bon fonctionnement du programme. Il comprendra des tests sur l'ensemble des méthodes écrites et permettra de vérifier aisément que le travail a correctement été réalisé. Rédigé au fur et à mesure, il sera ensuite appliqué à chaque amélioration afin d'assurer la rétro-compatibilité des nouveautés implémentées.
 \subsection{Résultats attendus}
 On s'attend à l'issue de la phase de code de ce projet à obtenir un programme fonctionnel, avec le moins de bugs possible (aucun programme n'est parfait, malheureusement). On s'attend également à ce que tous les points évoqués dans la partie \textbf{Conditions d'utilisation} soit remplis. Une tolérance minime aux pannes sera mise en place, potentiellement améliorée si le temps le permet.\\
 
 Un certains nombres d'outils permettant l'administration du programme seront également mis en place, c'est à dire des logs, des stats et du monitoring. Le but est bien entendu de rendre le travail du programmeur ainsi que celui du correcteur plus facile.
 \subsection{Améliorations potentielles}
-Les améliorations dans cette section seront implémentées dans la mesure du possible et suivant l'avancement global du projet. Elles contribueront à avoir un programme plus résistant, plus souple et plus agréable à utiliser.\\
+Les améliorations dans cette section seront implémentées dans la mesure du possible et suivant l'avancement global du projet. Elles contribueront à avoir un programme plus résistant, plus souple et plus agréable à utiliser. L'ordre n'est pas significatif.\\
 
 $\rightarrow$ Quand on modifie une ligne et qu'on appuie sur "Entrée", modifie automatiquement la ligne suivante sans avoir à renvoyer une requête.\\
+
+$\rightarrow$ Quand on a planté et qu'on se reconnecte, le client détecte les fichiers temporaires non effacés, demande à l'utilisateur si il désire récuperer leur contenu, puis envoie au serveur les bonnes instructions pour effectuer ces changements (amélioration ambitieuse).
 
 $\rightarrow$ Ajout d'une commande pour se déplacer directement à une ligne précise, pour éviter d'avoir à envoyer plusieurs commandes pour se déplacer à la suite (à la manière de Vim). \\
 
@@ -239,6 +251,6 @@ $\rightarrow$ Ajout d'une commande pour accéder aux logs directement depuis le 
 $\rightarrow$ Ajout d'une commande permettant de faire une sauvegarde des fichiers du serveur chez le client.\\
 
 \subsection{\'Etat de l'art}
-Pour ce projet nous nous sommes inspirés de quelques éditeurs de texte très connus. Google Docs pour la partie répartie, Vim pour la partie commandes. Pour le protocole nous nous sommes basés sur des projets réalisés par le passé. La bibliothèque graphique Ncurses nous a été suggérée par Pierre Sens.
+Pour ce projet nous nous sommes inspirés de quelques éditeurs de texte très connus. Google Docs pour la partie répartie, Vim pour la partie commandes. Pour le protocole nous nous sommes basés sur des projets réalisés par le passé, notamment en L3 (à Paris 7). La bibliothèque graphique Ncurses nous a été suggérée par Pierre Sens.
 
 \end{document}

@@ -12,11 +12,10 @@
 #define MAX_PINGS 5
 
 #define PORT_SERV_TCP 9001
-#define PORT_CLNT_TCP "9001"
 #define PORT_SERV_UDP 9002
-/*#define ADDRESS "localhost"*/
 
 struct client {
+	int id;
 	int port; //port of user
 	char *ip; //ip of user
 	int nb_open_files; 

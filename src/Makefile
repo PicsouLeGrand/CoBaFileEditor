@@ -1,14 +1,15 @@
 CC=gcc
-CFLAGS=-Wall -Wextra -Werror -lpthread
+CFLAGS=-Wall -Wextra
+LIBS=-lpthread
 EXEC=serveur client
 
 all: $(EXEC)
 
-serveur: serv/serveur_main.o header.h
-	$(CC) -o $@ $^
+serveur: serv/serveur_main.o serv/serveur_header.h
+	$(CC) -o $@ $^ $(LIBS)
 
-client: clnt/client_main.o header.h
-	$(CC) -o $@ $^
+client: clnt/client_main.o clnt/client_header.h
+	$(CC) -o $@ $^ $(LIBS)
 
 %.o: %.c
 	$(CC) $(CFLAGS) -o $@ -c $<
@@ -16,5 +17,5 @@ client: clnt/client_main.o header.h
 clean:
 	rm -rf *.o
 
-mrproper:
+vanish:
 	rm -rf $(EXEC)

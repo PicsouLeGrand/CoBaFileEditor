@@ -1,11 +1,114 @@
-#include "../header.h"
+#include "serveur_header.h"
+
+int ID_COUNTER = 0;
+
+/*
+ * Executed by a thread, send a ping via a UDP port to all clients listening
+ */
+void *pingUDP(void *ip_client){
+	char *ip = (char *) ip_client;
+	int sock; //UDP connection socket
+	struct addrinfo *first_info;
+	struct addrinfo hints;
+	struct sockaddr *saddr;
+	char *png = "png?";
+
+	sock = socket(PF_INET, SOCK_DGRAM, 0);
+	memset(&hints, 0, sizeof(struct addrinfo));
+	hints.ai_family = AF_INET;
+	hints.ai_socktype = SOCK_DGRAM;
+	
+	if(getaddrinfo(ip, PORT_SERV_UDP, &hints, &first_info) != 0){
+		perror("getaddrinfo UDP error");
+		exit(EXIT_FAILURE);
+	}
+
+	if(first_info == NULL){
+		perror("first_info NULL error");
+		exit(EXIT_FAILURE);
+	}
+
+	saddr = first_info->ai_addr;
+	sendto(sock, png, strlen(png), 0, saddr, (socklen_t) sizeof(struct sockaddr_in));
+
+	pthread_exit(NULL);
+}
+
+/*
+ * Add a client to the master list
+ */
+void add_client(struct client new_client){
+	int i;
+	for(i = 0; i < MAX_CLIENTS; i++){
+		if(clients[i].port == 0){
+			clients[i] = new_client;
+			break;
+		}
+	}
+	//TODO CLEAN OLD CLIENTS
+}
+
+/*
+ * Print informations about a specific client
+ */
+void print_client(struct client c) {
+	printf("ID            : %d\n", c.id);
+	printf("Port          : %d\n", c.port);
+	printf("IP            : %s\n", c.ip);
+	printf("Nb open files : %d\n", c.nb_open_files);
+	switch(c.is_modifying){
+		case(0):
+			printf("Is modifying  : NO\n");
+			break;
+		case(1):
+			printf("Is modifying  : YES\n");
+			printf("Line nb       : %d\n", c.line_nb);
+			break;
+	}
+	printf("Missed pings  : %d\n", c.unanswered_pings);
+}
+
+/*
+ * Print info of all clients currently on server
+ */
+void print_all_clients(){
+	int i;
+	for(i = 0; i < MAX_CLIENTS; i++){
+		if(clients[i].port == 0)
+			break;
+		else {
+			print_client(clients[i]);
+			printf("---------------------------------------\n");
+		
+		}
+	}
+}
+
+/*
+ * Initialize a new client with args provided in the caller struct
+ */
+struct client create_client(struct sockaddr_in caller){
+	struct client new_client;
+
+	new_client.id = ID_COUNTER;
+	ID_COUNTER++;
+	new_client.port = caller.sin_port;
+	new_client.ip = malloc(INET_ADDRSTRLEN * sizeof(char));
+	new_client.ip = inet_ntoa(caller.sin_addr);
+	new_client.nb_open_files = 0;
+	new_client.is_modifying = 0;
+	new_client.line_nb = 0;
+	new_client.unanswered_pings = 0;
+
+	return new_client;
+}
 
 int main(){
 	int sock; //TCP connection socket
 	int sock2;
 	int received;
 	socklen_t size;
-
+	
 	struct sockaddr_in address_sock;
 	struct sockaddr_in caller;
 
@@ -33,8 +136,18 @@ int main(){
 			exit(EXIT_FAILURE);
 		}
 
-		char *test = "Hello ?\n";
-		if(send(sock2, test, strlen(test) * sizeof(char), 0) < 0) {
+		struct client new_client = create_client(caller);
+		//add_client(new_client);
+		//print_all_clients();
+		
+		//TODO CHECK IF MAX_CLIENTS ARE CONNECTED
+
+		//array of threads for UDP pings
+		pthread_t threadsUDP[MAX_CLIENTS];
+		pthread_create(&threadsUDP[new_client.id], NULL, pingUDP, (void *)new_client.ip);
+		
+		char *welcome = "Welcome to the CoBa File Editor.\nType help for help.\n";
+		if(send(sock2, welcome, strlen(welcome) * sizeof(char), 0) < 0) {
 			perror("send error");
 			exit(EXIT_FAILURE);
 		}

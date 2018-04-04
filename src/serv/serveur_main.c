@@ -2,23 +2,46 @@
 
 int ID_COUNTER = 0;
 
+void *client_mainloop(void *t_args) {
+	struct thread_args *args = (struct thread_args *) t_args;
+	int received;
+	
+	char *welcome = "Welcome to the CoBa File Editor.\nType help for help.\n";
+	if(send(args->sock2, welcome, strlen(welcome) * sizeof(char), 0) < 0) {
+		perror("send error");
+		exit(EXIT_FAILURE);
+	}
+
+	while(1){
+		char buff[100];
+		received = recv(args->sock2, buff, 99*sizeof(char), 0);
+		buff[received] = '\0';
+		if(strcmp(buff, "\n") != 0){
+			if(strcmp(buff, "png!") == 0){
+				printf("Ping response from : %s and port : %d\n", inet_ntoa(args->caller.sin_addr),
+				args->caller.sin_port);
+			}
+		}
+	}
+
+	pthread_exit(NULL);
+}
+
 /*
- * Executed by a thread, send a ping via a UDP port to all clients listening
+ * Send a ping via a UDP port to all clients listening
  */
-void *pingUDP(void *ip_client){
-	char *ip = (char *) ip_client;
+void *pingUDP(){
 	int sock; //UDP connection socket
 	struct addrinfo *first_info;
-	struct addrinfo hints;
 	struct sockaddr *saddr;
 	char *png = "png?";
 
 	sock = socket(PF_INET, SOCK_DGRAM, 0);
-	memset(&hints, 0, sizeof(struct addrinfo));
-	hints.ai_family = AF_INET;
-	hints.ai_socktype = SOCK_DGRAM;
+	//memset(&hints, 0, sizeof(struct addrinfo));
+	//hints.ai_family = AF_INET;
+	//hints.ai_socktype = SOCK_DGRAM;
 	
-	if(getaddrinfo(ip, PORT_SERV_UDP, &hints, &first_info) != 0){
+	if(getaddrinfo(ADDR_MULTICAST, PORT_SERV_UDP, NULL, &first_info) != 0){
 		perror("getaddrinfo UDP error");
 		exit(EXIT_FAILURE);
 	}
@@ -29,7 +52,10 @@ void *pingUDP(void *ip_client){
 	}
 
 	saddr = first_info->ai_addr;
-	sendto(sock, png, strlen(png), 0, saddr, (socklen_t) sizeof(struct sockaddr_in));
+	while(1){
+		sendto(sock, png, strlen(png), 0, saddr, (socklen_t) sizeof(struct sockaddr_in));
+		sleep(PING_INTERVAL);
+	}
 
 	pthread_exit(NULL);
 }
@@ -106,11 +132,13 @@ struct client create_client(struct sockaddr_in caller){
 int main(){
 	int sock; //TCP connection socket
 	int sock2;
-	int received;
 	socklen_t size;
+	pthread_t thread_UDP;
+	pthread_t threads_clients[MAX_CLIENTS];
 	
 	struct sockaddr_in address_sock;
 	struct sockaddr_in caller;
+	struct thread_args *t_args;
 
 	sock = socket(PF_INET, SOCK_STREAM, 0);
 
@@ -130,6 +158,11 @@ int main(){
 		exit(EXIT_FAILURE);
 	}
 
+	if(pthread_create(&thread_UDP, NULL, pingUDP, NULL) != 0){
+		perror("pthread error 1");
+		exit(EXIT_FAILURE);
+	}
+	
 	while(1){
 		if((sock2 = accept(sock, (struct sockaddr *) &caller, &size)) == -1){
 			perror("accept error");
@@ -142,20 +175,17 @@ int main(){
 		
 		//TODO CHECK IF MAX_CLIENTS ARE CONNECTED
 
-		//array of threads for UDP pings
-		pthread_t threadsUDP[MAX_CLIENTS];
-		pthread_create(&threadsUDP[new_client.id], NULL, pingUDP, (void *)new_client.ip);
-		
-		char *welcome = "Welcome to the CoBa File Editor.\nType help for help.\n";
-		if(send(sock2, welcome, strlen(welcome) * sizeof(char), 0) < 0) {
-			perror("send error");
+		t_args = malloc(sizeof(struct thread_args));
+		memset(t_args, 0, sizeof(struct thread_args));
+		t_args->sock2 = sock2;
+		t_args->caller = caller;
+
+		if(pthread_create(&threads_clients[new_client.id], NULL, client_mainloop, (void *) t_args) != 0){
+			perror("pthread error 2");
 			exit(EXIT_FAILURE);
 		}
-
-		char buff[100];
-		received = recv(sock2, buff, 99*sizeof(char), 0);
-		buff[received] = '\0';
-		printf("Received message : %s\n", buff);
+		
+		
 	}
 	close(sock2);
 

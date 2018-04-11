@@ -2,6 +2,9 @@
 
 int ID_COUNTER = 0;
 
+/*
+ * Executed by a thread, one instance per client connected
+ */
 void *client_mainloop(void *t_args) {
 	struct thread_args *args = (struct thread_args *) t_args;
 	int received;

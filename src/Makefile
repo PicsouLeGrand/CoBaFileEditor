@@ -15,7 +15,7 @@ client: clnt/client_main.o clnt/client_header.h
 	$(CC) $(CFLAGS) -o $@ -c $<
 
 clean:
-	rm -rf *.o
+	rm -rf serv/*.o clnt/*.o
 
 vanish:
 	rm -rf $(EXEC)

@@ -6,11 +6,28 @@ int sock = 0;
  * Send a message through the global TCP socket to the server
  */ 
 void send_msg(char *msg){
+	strtok(msg, "\n");
+	strcat(msg, "\0");
+
 	if(write(sock, msg, strlen(msg) * sizeof(char)) == -1){
 		perror("write send_msg");
 		exit(EXIT_FAILURE);
 	}
-	printf("Ping response sent!\n");
+}
+
+void *gestion_recv(void *t_args){
+	struct thread_args *args = (struct thread_args *) t_args;
+	int received;
+	char buff[100];
+
+	while(1){
+		received = read(args->sock, buff, 99*sizeof(char));
+		buff[received] = '\0';
+		if(strcmp(buff, "") != 0){
+			printf("message received : %s\n", buff);
+			//printf("%lu\n", strlen(buff));
+		}
+	}
 }
 
 void *gestion_ping(){
@@ -49,19 +66,22 @@ void *gestion_ping(){
 	while(1){
 		rec = recv(sock, buffer, BUFF_SIZE_PING, 0);
 		buffer[rec] = '\0';
-		printf("%s\n", buffer);
+		//printf("%s\n", buffer);
 		send_msg(PNG_RESPONSE);
+		//printf("Ping response sent\n");
 	}
 
 	pthread_exit(NULL);
 }
 
 int main(int argc, char** argv){
-	int received;
 	struct sockaddr_in *addressin;
 	struct addrinfo *first_info;
 	struct addrinfo hints;
+	struct thread_args *t_args;
 	pthread_t threadUDP;
+	pthread_t threadRecv;
+	char *input;
 
 	if(argc != 2){
 		fprintf(stderr, "usage : ./client_main address");
@@ -69,6 +89,9 @@ int main(int argc, char** argv){
 	}
 
 	pthread_create(&threadUDP, NULL, gestion_ping, NULL);
+
+	input = malloc(BUFF_SIZE_INPUT * sizeof(char));
+
 	sock = socket(PF_INET, SOCK_STREAM, 0);
 
 	bzero(&hints, sizeof(struct addrinfo));
@@ -92,16 +115,20 @@ int main(int argc, char** argv){
 		exit(EXIT_FAILURE);
 	}
 
-	char buff[100];
-	while(1){
-		received = read(sock, buff, 99*sizeof(char));
-		buff[received] = '\0';
-		if(strcmp(buff, "\n") != 0 || strcmp(buff, "") != 0){
-			printf("message received : %s\n", buff);
-		
-		}
-	}
+	t_args = malloc(sizeof(struct thread_args));
+	memset(t_args, 0, sizeof(struct thread_args));
+	t_args->sock = sock;
 
+	pthread_create(&threadRecv, NULL, gestion_recv, (void *) t_args);
+	
+	while(1) {
+		//TODO envoi de commandes au serveur
+		memset(input, 0, BUFF_SIZE_INPUT * sizeof(char));
+		printf("> ");
+		fgets(input, BUFF_SIZE_INPUT, stdin);
+		send_msg(input);
+	}
+	
 	//char *mess = "Coucou !\n";
 	//write(sock, mess, strlen(mess) * sizeof(char));
 	

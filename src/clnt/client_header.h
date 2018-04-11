@@ -14,8 +14,14 @@
 #define ADDR_MULTICAST "225.1.2.4"
 
 #define BUFF_SIZE_PING 100
+#define BUFF_SIZE_INPUT 1024
 
 #define PNG_RESPONSE "png!"
 
+struct thread_args {
+	int sock;
+};
+
 void send_msg(char *msg);
 void *gestion_ping();
+void *gestion_recv(void *t_args);

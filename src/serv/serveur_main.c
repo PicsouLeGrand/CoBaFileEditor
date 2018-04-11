@@ -1,5 +1,15 @@
 #include "serveur_header.h"
 
+/*
+ * TODO
+ *
+ * Ejecter les clients qui sont afk, ça implique compter à chaque ping non répondu et les virer de la table des clients
+ * (si je dis pas de conneries)
+ *
+ * TODO
+ */
+
+
 int ID_COUNTER = 0;
 
 /*
@@ -19,11 +29,17 @@ void *client_mainloop(void *t_args) {
 		char buff[100];
 		received = recv(args->sock2, buff, 99*sizeof(char), 0);
 		buff[received] = '\0';
-		if(strcmp(buff, "\n") != 0){
+		if(strcmp(buff, "\0") != 0 || strcmp(buff, "\n") != 0){
 			if(strcmp(buff, "png!") == 0){
 				printf("Ping response from : %s and port : %d\n", inet_ntoa(args->caller.sin_addr),
 				args->caller.sin_port);
+			} else {
+				printf("%s from : %s and port : %d\n", buff, inet_ntoa(args->caller.sin_addr), args->caller.sin_port);
 			}
+
+		}
+		else {
+			printf("chaine : %s", buff);
 		}
 	}
 

@@ -15,13 +15,18 @@
 
 #define BUFF_SIZE_PING 100
 #define BUFF_SIZE_INPUT 1024
+#define BUFF_SIZE_RECV 1024
 
-#define PNG_RESPONSE "png!"
+#define PROT_PNG_R "png!"
+#define PROT_CON "con?"
 
 struct thread_args {
 	int sock;
 };
 
-void send_msg(char *msg);
+void send_msg(struct thread_args *args, char *msg);
 void *gestion_ping();
 void *gestion_recv(void *t_args);
+
+int send_con(struct thread_args *args);
+void deformatage(char *buff);

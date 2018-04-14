@@ -6,6 +6,8 @@
  * Ejecter les clients qui sont afk, ça implique compter à chaque ping non répondu et les virer de la table des clients
  * (si je dis pas de conneries)
  *
+ * Créer un fichier de formatage / déformatage qui s'occupe de gérer les messages échangés grâce au protocole
+ * 1 fichier pour le serveur 1 pour le client à priori
  * TODO
  */
 
@@ -18,28 +20,50 @@ int ID_COUNTER = 0;
 void *client_mainloop(void *t_args) {
 	struct thread_args *args = (struct thread_args *) t_args;
 	int received;
+	int is_connected = 0;
+	char *message;
+	char *err;
 	
-	char *welcome = "Welcome to the CoBa File Editor.\nType help for help.\n";
-	if(send(args->sock2, welcome, strlen(welcome) * sizeof(char), 0) < 0) {
-		perror("send error");
-		exit(EXIT_FAILURE);
-	}
+	send_welco(args);
 
 	while(1){
-		char buff[100];
+		char buff[BUFF_SIZE_RECV];
 		received = recv(args->sock2, buff, 99*sizeof(char), 0);
 		buff[received] = '\0';
-		if(strcmp(buff, "\0") != 0 || strcmp(buff, "\n") != 0){
-			if(strcmp(buff, "png!") == 0){
-				printf("Ping response from : %s and port : %d\n", inet_ntoa(args->caller.sin_addr),
-				args->caller.sin_port);
+
+		if(strcmp(buff, "") != 0){
+			//first of all, client need to send con? request
+			if(is_connected == 0){
+				if(strcmp(buff, PROT_CON) == 0){
+					//TODO verifs pour que le client se connecte bien
+					//send confirmation message for connection
+					send_con_r(args);
+					is_connected = 1;
+				}/* else {
+					printf("strange : %s", buff);
+					message = malloc(1024*sizeof(char));
+					err = "Something went wrong when connecting...";
+					strcat(message, PROT_ERR);
+					strcat(message, err);
+					send(args->sock2, message, strlen(message) * sizeof(char), 0);
+					close(args->sock2);
+					printf("> Client disconnected, was : %s and port %d\n",
+					inet_ntoa(args->caller.sin_addr), args->caller.sin_port);
+					break;
+					//TODO clean correctement le client
+				}*/
+
 			} else {
-				printf("%s from : %s and port : %d\n", buff, inet_ntoa(args->caller.sin_addr), args->caller.sin_port);
+
 			}
 
-		}
-		else {
-			printf("chaine : %s", buff);
+			if(strcmp(buff, PROT_PNG_R) == 0){
+				printf("> Ping response from : %s and port : %d\n", inet_ntoa(args->caller.sin_addr),
+				args->caller.sin_port);
+			} else {
+				printf("> %s from : %s and port : %d\n", buff, inet_ntoa(args->caller.sin_addr), args->caller.sin_port);
+			}
+
 		}
 	}
 
@@ -53,7 +77,7 @@ void *pingUDP(){
 	int sock; //UDP connection socket
 	struct addrinfo *first_info;
 	struct sockaddr *saddr;
-	char *png = "png?";
+	char *png = PROT_PNG;
 
 	sock = socket(PF_INET, SOCK_DGRAM, 0);
 	//memset(&hints, 0, sizeof(struct addrinfo));
@@ -199,6 +223,9 @@ int main(){
 		t_args->sock2 = sock2;
 		t_args->caller = caller;
 
+		printf("> A new client wants to connect, launching thread.\n");
+
+		//launch a thread for the new client
 		if(pthread_create(&threads_clients[new_client.id], NULL, client_mainloop, (void *) t_args) != 0){
 			perror("pthread error 2");
 			exit(EXIT_FAILURE);

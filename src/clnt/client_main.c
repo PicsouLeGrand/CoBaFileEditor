@@ -1,35 +1,31 @@
 #include "client_header.h"
 
-int sock = 0;
+int sock_global = 0;
 
 /*
- * Send a message through the global TCP socket to the server
- */ 
-void send_msg(char *msg){
-	strtok(msg, "\n");
-	strcat(msg, "\0");
-
-	if(write(sock, msg, strlen(msg) * sizeof(char)) == -1){
-		perror("write send_msg");
-		exit(EXIT_FAILURE);
-	}
-}
-
+ * Executed by a thread, manage reception of messages from the server on TCP
+ */
 void *gestion_recv(void *t_args){
 	struct thread_args *args = (struct thread_args *) t_args;
 	int received;
-	char buff[100];
+	char buff[BUFF_SIZE_RECV];
 
 	while(1){
 		received = read(args->sock, buff, 99*sizeof(char));
 		buff[received] = '\0';
 		if(strcmp(buff, "") != 0){
-			printf("message received : %s\n", buff);
+			//send the buffer to deformatage() for reading
+			deformatage(buff);
+			//printf("%s\n", buff);
 			//printf("%lu\n", strlen(buff));
 		}
 	}
 }
 
+/*
+ * Executed by a thread, manage the UDP port for ping reception and
+ * answer it (on TCP)
+ */
 void *gestion_ping(){
 	int sock;
 	int rec;
@@ -37,6 +33,10 @@ void *gestion_ping(){
 	struct sockaddr_in address_sock;
 	struct ip_mreq mreq;
 	char buffer[BUFF_SIZE_PING];
+	struct thread_args *args;
+
+	args = malloc(sizeof(struct thread_args *));
+	args->sock = sock_global;
 	
 	ok = 1;
 	sock = socket(PF_INET, SOCK_DGRAM, 0);
@@ -67,7 +67,7 @@ void *gestion_ping(){
 		rec = recv(sock, buffer, BUFF_SIZE_PING, 0);
 		buffer[rec] = '\0';
 		//printf("%s\n", buffer);
-		send_msg(PNG_RESPONSE);
+		send_msg(args, PROT_PNG_R);
 		//printf("Ping response sent\n");
 	}
 
@@ -92,7 +92,7 @@ int main(int argc, char** argv){
 
 	input = malloc(BUFF_SIZE_INPUT * sizeof(char));
 
-	sock = socket(PF_INET, SOCK_STREAM, 0);
+	sock_global = socket(PF_INET, SOCK_STREAM, 0);
 
 	bzero(&hints, sizeof(struct addrinfo));
 	hints.ai_family = AF_INET;
@@ -110,29 +110,35 @@ int main(int argc, char** argv){
 
 	addressin = (struct sockaddr_in *) first_info->ai_addr;
 
-	if(connect(sock, (struct sockaddr *) addressin, (socklen_t) sizeof(struct sockaddr_in)) != 0) {
+	if(connect(sock_global, (struct sockaddr *) addressin, (socklen_t) sizeof(struct sockaddr_in)) != 0) {
 		perror("connect error");
 		exit(EXIT_FAILURE);
 	}
 
 	t_args = malloc(sizeof(struct thread_args));
 	memset(t_args, 0, sizeof(struct thread_args));
-	t_args->sock = sock;
+	t_args->sock = sock_global;
 
 	pthread_create(&threadRecv, NULL, gestion_recv, (void *) t_args);
+
+	sleep(1);
+	//send a connect request to the server
+	send_con(t_args);
 	
+	//for lisibility, else the first input message is not properly displayed
+	sleep(1);
 	while(1) {
 		//TODO envoi de commandes au serveur
 		memset(input, 0, BUFF_SIZE_INPUT * sizeof(char));
-		printf("> ");
+		printf("Enter your command :");
 		fgets(input, BUFF_SIZE_INPUT, stdin);
-		send_msg(input);
+		//TODO gérer l'input, le formater et l'envoyer
 	}
 	
 	//char *mess = "Coucou !\n";
 	//write(sock, mess, strlen(mess) * sizeof(char));
 	
-	close(sock);
+	close(sock_global);
 
 	return 0;
 }

@@ -16,6 +16,14 @@
 #define PORT_SERV_UDP "9002"
 #define ADDR_MULTICAST "225.1.2.4"
 
+#define BUFF_SIZE_RECV 1024
+
+#define PROT_PNG "png?"
+#define PROT_PNG_R "png!"
+#define PROT_CON "con?"
+#define PROT_CON_R "con!"
+#define PROT_ERR "err! "
+
 struct client {
 	int id;
 	int port; //port of user
@@ -39,3 +47,6 @@ void print_client(struct client c);
 void print_all_clients();
 struct client create_client(struct sockaddr_in caller);
 void *client_mainloop(void *t_args);
+
+int send_con_r(struct thread_args *args);
+int send_welco(struct thread_args *args);

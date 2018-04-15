@@ -31,20 +31,23 @@ struct client {
 	int nb_open_files; 
 	int is_modifying;
 	int line_nb; //if modifying, which line
-	int unanswered_pings;
+	int unanswered_pings; //usually worth 1 because of implementation
 };
 
 struct thread_args {
 	int sock2;
 	struct sockaddr_in caller;
+	struct client c;
 };
 
 struct client clients[MAX_CLIENTS];
 
 void *pingUDP();
 void add_client(struct client new_client);
+void remove_client(struct client old_client);
 void print_client(struct client c);
 void print_all_clients();
+struct client create_empty_client();
 struct client create_client(struct sockaddr_in caller);
 void *client_mainloop(void *t_args);
 

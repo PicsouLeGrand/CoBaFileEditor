@@ -130,7 +130,7 @@ int main(int argc, char** argv){
 	while(1) {
 		//TODO envoi de commandes au serveur
 		memset(input, 0, BUFF_SIZE_INPUT * sizeof(char));
-		printf("Enter your command :");
+		printf("Enter your command : ");
 		fgets(input, BUFF_SIZE_INPUT, stdin);
 		//TODO gérer l'input, le formater et l'envoyer
 	}

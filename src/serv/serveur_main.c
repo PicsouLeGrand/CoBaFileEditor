@@ -13,6 +13,8 @@
 
 
 int ID_COUNTER = 0;
+int NB_CLIENTS = 0;
+static struct client empty_client;
 
 /*
  * Executed by a thread, one instance per client connected
@@ -21,11 +23,15 @@ void *client_mainloop(void *t_args) {
 	struct thread_args *args = (struct thread_args *) t_args;
 	int received;
 	int is_connected = 0;
-	char *message;
-	char *err;
+	//char *message;
+	//char *err;
 	
 	send_welco(args);
 
+	add_client(args->c);
+	NB_CLIENTS++;
+	//print_all_clients();
+	
 	while(1){
 		char buff[BUFF_SIZE_RECV];
 		received = recv(args->sock2, buff, 99*sizeof(char), 0);
@@ -54,12 +60,13 @@ void *client_mainloop(void *t_args) {
 				}*/
 
 			} else {
-
 			}
 
 			if(strcmp(buff, PROT_PNG_R) == 0){
 				printf("> Ping response from : %s and port : %d\n", inet_ntoa(args->caller.sin_addr),
 				args->caller.sin_port);
+
+				clients[args->c.id].unanswered_pings = 0;
 			} else {
 				printf("> %s from : %s and port : %d\n", buff, inet_ntoa(args->caller.sin_addr), args->caller.sin_port);
 			}
@@ -75,6 +82,7 @@ void *client_mainloop(void *t_args) {
  */
 void *pingUDP(){
 	int sock; //UDP connection socket
+	int i;
 	struct addrinfo *first_info;
 	struct sockaddr *saddr;
 	char *png = PROT_PNG;
@@ -97,7 +105,17 @@ void *pingUDP(){
 	saddr = first_info->ai_addr;
 	while(1){
 		sendto(sock, png, strlen(png), 0, saddr, (socklen_t) sizeof(struct sockaddr_in));
+
+		print_all_clients();
 		sleep(PING_INTERVAL);
+		for(i = 0; i < NB_CLIENTS; i++){
+			clients[i].unanswered_pings++;
+			if(clients[i].unanswered_pings >= MAX_PINGS && clients[i].id != -1){
+				printf("> Client n°%d is removed because of possible disconnect.\n", clients[i].id);
+				remove_client(clients[i]);
+			}
+		}
+
 	}
 
 	pthread_exit(NULL);
@@ -106,15 +124,22 @@ void *pingUDP(){
 /*
  * Add a client to the master list
  */
-void add_client(struct client new_client){
+void add_client(struct client new_client) {
 	int i;
 	for(i = 0; i < MAX_CLIENTS; i++){
-		if(clients[i].port == 0){
+		if(clients[i].port < 0){
 			clients[i] = new_client;
 			break;
 		}
 	}
 	//TODO CLEAN OLD CLIENTS
+}
+
+/*
+ * Remove a client from the master list
+ */
+void remove_client(struct client old_client) {
+	clients[old_client.id] = empty_client;
 }
 
 /*
@@ -143,7 +168,7 @@ void print_client(struct client c) {
 void print_all_clients(){
 	int i;
 	for(i = 0; i < MAX_CLIENTS; i++){
-		if(clients[i].port == 0)
+		if(clients[i].port < 0)
 			break;
 		else {
 			print_client(clients[i]);
@@ -154,13 +179,29 @@ void print_all_clients(){
 }
 
 /*
+ * Create an empty client
+ */
+struct client create_empty_client(){
+	struct client c;
+
+	c.id = -1;
+	c.port = -1;
+	c.ip = "-1";
+	c.nb_open_files = -1;
+	c.is_modifying = -1;
+	c.line_nb = -1;
+	c.unanswered_pings = -1;
+
+	return c;
+}
+
+/*
  * Initialize a new client with args provided in the caller struct
  */
 struct client create_client(struct sockaddr_in caller){
 	struct client new_client;
 
 	new_client.id = ID_COUNTER;
-	ID_COUNTER++;
 	new_client.port = caller.sin_port;
 	new_client.ip = malloc(INET_ADDRSTRLEN * sizeof(char));
 	new_client.ip = inet_ntoa(caller.sin_addr);
@@ -175,6 +216,7 @@ struct client create_client(struct sockaddr_in caller){
 int main(){
 	int sock; //TCP connection socket
 	int sock2;
+	int i;
 	socklen_t size;
 	pthread_t thread_UDP;
 	pthread_t threads_clients[MAX_CLIENTS];
@@ -206,12 +248,23 @@ int main(){
 		exit(EXIT_FAILURE);
 	}
 	
+	empty_client = create_empty_client();
+	for(i = 0; i < MAX_CLIENTS; i++)
+		clients[i] = empty_client;
+
 	while(1){
 		if((sock2 = accept(sock, (struct sockaddr *) &caller, &size)) == -1){
 			perror("accept error");
 			exit(EXIT_FAILURE);
 		}
-
+		
+		//ID_COUNTER = first empty client slot
+		for(i = 0; i < MAX_CLIENTS; i++){
+			if(clients[i].id == -1){
+				ID_COUNTER = i;
+				break;
+			}
+		}
 		struct client new_client = create_client(caller);
 		//add_client(new_client);
 		//print_all_clients();
@@ -222,6 +275,7 @@ int main(){
 		memset(t_args, 0, sizeof(struct thread_args));
 		t_args->sock2 = sock2;
 		t_args->caller = caller;
+		t_args->c = new_client;
 
 		printf("> A new client wants to connect, launching thread.\n");
 

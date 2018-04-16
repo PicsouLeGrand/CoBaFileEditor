@@ -95,7 +95,7 @@ void *pingUDP(){
 			if(clients[i].id != -1){
 				clients[i].unanswered_pings++;
 				if(clients[i].unanswered_pings >= MAX_PINGS){
-					printf("> Client n°%d was removed because of possible disconnect.\n", clients[i].id);
+					printf("> Client n°%d was removed because of possible disconnect.", clients[i].id);
 					remove_client(clients[i]);
 				}
 			}

@@ -18,10 +18,17 @@ void send_msg(struct thread_args *args, char *msg){
 	}
 }
 
+/*
+ * Send a connexion request to the server
+ */
 int send_con(struct thread_args *args){
 	return write(args->sock, PROT_CON, strlen(PROT_CON) * sizeof(char));
 }
 
+/*
+ * Used to cut the buffer and extract informations, then use them accordingly
+ * to the protocol
+ */
 void deformatage(char *buff){
 	char *head;
 	char *tail;
@@ -39,6 +46,7 @@ void deformatage(char *buff){
 		pthread_cond_signal(&condition);
 	} else if(strcmp(head, "err!") == 0) {
 		fprintf(stdout, "> Server error : %s\n", tail);
+		//temporaire, y'a sûrement un moyen de quitter proprement
 		exit(1);
 	} else {
 		fprintf(stderr, "boi : %s\n", original);

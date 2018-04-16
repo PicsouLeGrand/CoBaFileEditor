@@ -1,6 +1,8 @@
 #include "client_header.h"
 
 int sock_global = 0;
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t condition = PTHREAD_COND_INITIALIZER;
 
 /*
  * Executed by a thread, manage reception of messages from the server on TCP
@@ -9,14 +11,21 @@ void *gestion_recv(void *t_args){
 	struct thread_args *args = (struct thread_args *) t_args;
 	int received;
 	char buff[BUFF_SIZE_RECV];
+	int first_time = 1;
+	
 
 	while(1){
 		received = read(args->sock, buff, 99*sizeof(char));
 		buff[received] = '\0';
+		if(first_time){
+			send_con(t_args);
+			first_time = 0;
+		}
+
 		if(strcmp(buff, "") != 0){
 			//send the buffer to deformatage() for reading
 			deformatage(buff);
-			//printf("%s\n", buff);
+			//printf("buffer : %s\n", buff);
 			//printf("%lu\n", strlen(buff));
 		}
 	}
@@ -81,6 +90,7 @@ int main(int argc, char** argv){
 	struct thread_args *t_args;
 	pthread_t threadUDP;
 	pthread_t threadRecv;
+	
 	char *input;
 
 	if(argc != 2){
@@ -88,7 +98,8 @@ int main(int argc, char** argv){
 		exit(EXIT_FAILURE);
 	}
 
-	pthread_create(&threadUDP, NULL, gestion_ping, NULL);
+	pthread_cond_init(&condition, NULL);
+	pthread_mutex_init(&mutex, NULL);
 
 	input = malloc(BUFF_SIZE_INPUT * sizeof(char));
 
@@ -119,14 +130,13 @@ int main(int argc, char** argv){
 	memset(t_args, 0, sizeof(struct thread_args));
 	t_args->sock = sock_global;
 
+	pthread_create(&threadUDP, NULL, gestion_ping, NULL);
 	pthread_create(&threadRecv, NULL, gestion_recv, (void *) t_args);
 
-	sleep(1);
-	//send a connect request to the server
-	send_con(t_args);
-	
-	//for lisibility, else the first input message is not properly displayed
-	sleep(1);
+	pthread_mutex_lock(&mutex);
+	pthread_cond_wait(&condition, &mutex);
+	pthread_mutex_unlock(&mutex);
+
 	while(1) {
 		//TODO envoi de commandes au serveur
 		memset(input, 0, BUFF_SIZE_INPUT * sizeof(char));
@@ -134,9 +144,6 @@ int main(int argc, char** argv){
 		fgets(input, BUFF_SIZE_INPUT, stdin);
 		//TODO gérer l'input, le formater et l'envoyer
 	}
-	
-	//char *mess = "Coucou !\n";
-	//write(sock, mess, strlen(mess) * sizeof(char));
 	
 	close(sock_global);
 

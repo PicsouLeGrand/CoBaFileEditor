@@ -8,7 +8,7 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 
-#define MAX_CLIENTS 10
+#define MAX_CLIENTS 2
 #define MAX_PINGS 5
 #define PING_INTERVAL 3
 
@@ -17,12 +17,15 @@
 #define ADDR_MULTICAST "225.1.2.4"
 
 #define BUFF_SIZE_RECV 1024
+#define BUFF_SIZE_ERR 1024
 
 #define PROT_PNG "png?"
 #define PROT_PNG_R "png!"
 #define PROT_CON "con?"
 #define PROT_CON_R "con!"
 #define PROT_ERR "err! "
+
+#define ERR_MSG_1 "maximum number of clients reached. Try again later.\n"
 
 struct client {
 	int id;
@@ -53,3 +56,4 @@ void *client_mainloop(void *t_args);
 
 int send_con_r(struct thread_args *args);
 int send_welco(struct thread_args *args);
+int send_err(int sock, char *message);

@@ -3,11 +3,8 @@
 /*
  * TODO
  *
- * Ejecter les clients qui sont afk, ça implique compter à chaque ping non répondu et les virer de la table des clients
- * (si je dis pas de conneries)
- *
- * Créer un fichier de formatage / déformatage qui s'occupe de gérer les messages échangés grâce au protocole
- * 1 fichier pour le serveur 1 pour le client à priori
+ * si le mec se reco avant qu'on le supprime il reprend sa place d'avant
+ * 
  * TODO
  */
 
@@ -23,12 +20,10 @@ void *client_mainloop(void *t_args) {
 	struct thread_args *args = (struct thread_args *) t_args;
 	int received;
 	int is_connected = 0;
-	//char *message;
-	//char *err;
-	
-	send_welco(args);
 
 	add_client(args->c);
+	send_welco(args);
+	
 	NB_CLIENTS++;
 	//print_all_clients();
 	
@@ -45,21 +40,9 @@ void *client_mainloop(void *t_args) {
 					//send confirmation message for connection
 					send_con_r(args);
 					is_connected = 1;
-				}/* else {
-					printf("strange : %s", buff);
-					message = malloc(1024*sizeof(char));
-					err = "Something went wrong when connecting...";
-					strcat(message, PROT_ERR);
-					strcat(message, err);
-					send(args->sock2, message, strlen(message) * sizeof(char), 0);
-					close(args->sock2);
-					printf("> Client disconnected, was : %s and port %d\n",
-					inet_ntoa(args->caller.sin_addr), args->caller.sin_port);
-					break;
-					//TODO clean correctement le client
-				}*/
-
+				}
 			} else {
+			
 			}
 
 			if(strcmp(buff, PROT_PNG_R) == 0){
@@ -106,13 +89,15 @@ void *pingUDP(){
 	while(1){
 		sendto(sock, png, strlen(png), 0, saddr, (socklen_t) sizeof(struct sockaddr_in));
 
-		print_all_clients();
+		//print_all_clients();
 		sleep(PING_INTERVAL);
-		for(i = 0; i < NB_CLIENTS; i++){
-			clients[i].unanswered_pings++;
-			if(clients[i].unanswered_pings >= MAX_PINGS && clients[i].id != -1){
-				printf("> Client n°%d is removed because of possible disconnect.\n", clients[i].id);
-				remove_client(clients[i]);
+		for(i = 0; i <= NB_CLIENTS; i++){
+			if(clients[i].id != -1){
+				clients[i].unanswered_pings++;
+				if(clients[i].unanswered_pings >= MAX_PINGS){
+					printf("> Client n°%d was removed because of possible disconnect.\n", clients[i].id);
+					remove_client(clients[i]);
+				}
 			}
 		}
 
@@ -125,21 +110,19 @@ void *pingUDP(){
  * Add a client to the master list
  */
 void add_client(struct client new_client) {
-	int i;
-	for(i = 0; i < MAX_CLIENTS; i++){
-		if(clients[i].port < 0){
-			clients[i] = new_client;
-			break;
-		}
-	}
-	//TODO CLEAN OLD CLIENTS
+	clients[ID_COUNTER] = new_client;
 }
 
 /*
  * Remove a client from the master list
  */
 void remove_client(struct client old_client) {
-	clients[old_client.id] = empty_client;
+	if(old_client.id == -1)
+		printf("> Client was already removed or doesn't exist.\n");
+	else {
+		clients[old_client.id] = empty_client;
+		NB_CLIENTS--;
+	}
 }
 
 /*
@@ -168,9 +151,7 @@ void print_client(struct client c) {
 void print_all_clients(){
 	int i;
 	for(i = 0; i < MAX_CLIENTS; i++){
-		if(clients[i].port < 0)
-			break;
-		else {
+		if(clients[i].port > -1){
 			print_client(clients[i]);
 			printf("---------------------------------------\n");
 		
@@ -258,6 +239,12 @@ int main(){
 			exit(EXIT_FAILURE);
 		}
 		
+		if(NB_CLIENTS == MAX_CLIENTS){
+			send_err(sock2, ERR_MSG_1);
+			//No need to remove the client from the master list, he's not yet added
+			continue;
+		}
+
 		//ID_COUNTER = first empty client slot
 		for(i = 0; i < MAX_CLIENTS; i++){
 			if(clients[i].id == -1){
@@ -266,8 +253,6 @@ int main(){
 			}
 		}
 		struct client new_client = create_client(caller);
-		//add_client(new_client);
-		//print_all_clients();
 		
 		//TODO CHECK IF MAX_CLIENTS ARE CONNECTED
 

@@ -14,3 +14,12 @@ int send_con_r(struct thread_args *args){
 	return send(args->sock2, PROT_CON_R, strlen(PROT_CON_R) * sizeof(char), 0);
 }
 
+int send_err(int sock, char *message){
+	char *error;
+	error = malloc(BUFF_SIZE_ERR * sizeof(char));
+	strcat(error, PROT_ERR);
+	strcat(error, " ");
+	strcat(error, message);
+
+	return send(sock, error, strlen(error) * sizeof(char), 0);
+}

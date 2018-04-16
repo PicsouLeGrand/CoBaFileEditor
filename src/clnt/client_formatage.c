@@ -24,18 +24,23 @@ int send_con(struct thread_args *args){
 
 void deformatage(char *buff){
 	char *head;
+	char *tail;
 	char *original;
 
 	original = malloc(strlen(buff) * sizeof(char) + 1);
 	strcpy(original, buff);
 	head = strtok(buff, " ");
-	
+	tail = strtok(NULL, "\n");
 
 	if(strcmp(head, "Welcome") == 0){
-		printf("> %s", original);
+		fprintf(stdout, "> %s", original);
 	} else if(strcmp(head, "con!") == 0) {
-		printf("> You are now connected\n");
+		fprintf(stdout, "> You are now connected\n");
+		pthread_cond_signal(&condition);
+	} else if(strcmp(head, "err!") == 0) {
+		fprintf(stdout, "> Server error : %s\n", tail);
+		exit(1);
 	} else {
-		printf("boi : %s\n", original);
+		fprintf(stderr, "boi : %s\n", original);
 	}
 }

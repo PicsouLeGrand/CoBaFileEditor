@@ -24,6 +24,9 @@ struct thread_args {
 	int sock;
 };
 
+extern pthread_mutex_t mutex;
+extern pthread_cond_t condition;
+
 void send_msg(struct thread_args *args, char *msg);
 void *gestion_ping();
 void *gestion_recv(void *t_args);

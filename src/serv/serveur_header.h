@@ -4,9 +4,11 @@
 #include <pthread.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <string.h>
 #include <arpa/inet.h>
 #include <netdb.h>
+#include <fcntl.h>
 
 #define MAX_CLIENTS 2
 #define MAX_PINGS 5
@@ -24,6 +26,8 @@
 #define PROT_CON "con?"
 #define PROT_CON_R "con!"
 #define PROT_ERR "err! "
+#define PROT_QUI "qui?"
+#define PROT_QUI_R "qui!"
 
 #define ERR_MSG_1 "maximum number of clients reached. Try again later.\n"
 
@@ -43,6 +47,7 @@ struct thread_args {
 	struct client c;
 };
 
+extern int fd;
 struct client clients[MAX_CLIENTS];
 
 void *pingUDP();
@@ -54,6 +59,9 @@ struct client create_empty_client();
 struct client create_client(struct sockaddr_in caller);
 void *client_mainloop(void *t_args);
 
-int send_con_r(struct thread_args *args);
+int send_msg(struct thread_args *args, char *msg);
 int send_welco(struct thread_args *args);
 int send_err(int sock, char *message);
+
+void write_to_log(struct client c, char *msg);
+void deformatage(struct thread_args *args);

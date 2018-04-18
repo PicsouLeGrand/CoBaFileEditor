@@ -12,14 +12,13 @@
 int ID_COUNTER = 0;
 int NB_CLIENTS = 0;
 static struct client empty_client;
+int fd;
 
 /*
  * Executed by a thread, one instance per client connected
  */
 void *client_mainloop(void *t_args) {
 	struct thread_args *args = (struct thread_args *) t_args;
-	int received;
-	int is_connected = 0;
 
 	add_client(args->c);
 	send_welco(args);
@@ -28,33 +27,7 @@ void *client_mainloop(void *t_args) {
 	//print_all_clients();
 	
 	while(1){
-		char buff[BUFF_SIZE_RECV];
-		received = recv(args->sock2, buff, 99*sizeof(char), 0);
-		buff[received] = '\0';
-
-		if(strcmp(buff, "") != 0){
-			//first of all, client need to send con? request
-			if(is_connected == 0){
-				if(strcmp(buff, PROT_CON) == 0){
-					//TODO verifs pour que le client se connecte bien
-					//send confirmation message for connection
-					send_con_r(args);
-					is_connected = 1;
-				}
-			} else {
-			
-			}
-
-			if(strcmp(buff, PROT_PNG_R) == 0){
-				printf("> Ping response from : %s and port : %d\n", inet_ntoa(args->caller.sin_addr),
-				args->caller.sin_port);
-
-				clients[args->c.id].unanswered_pings = 0;
-			} else {
-				printf("> %s from : %s and port : %d\n", buff, inet_ntoa(args->caller.sin_addr), args->caller.sin_port);
-			}
-
-		}
+		deformatage(args);
 	}
 
 	pthread_exit(NULL);
@@ -95,7 +68,8 @@ void *pingUDP(){
 			if(clients[i].id != -1){
 				clients[i].unanswered_pings++;
 				if(clients[i].unanswered_pings >= MAX_PINGS){
-					printf("> Client n°%d was removed because of possible disconnect.", clients[i].id);
+					printf("> %s | %d --> AFK\n", clients[i].ip, clients[i].port);
+					write_to_log(clients[i], "AFK");
 					remove_client(clients[i]);
 				}
 			}
@@ -198,6 +172,11 @@ int main(){
 	int sock; //TCP connection socket
 	int sock2;
 	int i;
+
+	time_t today;
+	struct tm date;
+	char *string_date;
+	
 	socklen_t size;
 	pthread_t thread_UDP;
 	pthread_t threads_clients[MAX_CLIENTS];
@@ -205,6 +184,13 @@ int main(){
 	struct sockaddr_in address_sock;
 	struct sockaddr_in caller;
 	struct thread_args *t_args;
+
+	fd = open("log_connections.txt", O_WRONLY | O_CREAT | O_APPEND, 0755);
+
+	time(&today);
+	date = *localtime(&today);
+	string_date = asctime(&date);
+	write(fd, string_date, strlen(string_date));
 
 	sock = socket(PF_INET, SOCK_STREAM, 0);
 
@@ -254,8 +240,7 @@ int main(){
 		}
 		struct client new_client = create_client(caller);
 		
-		//TODO CHECK IF MAX_CLIENTS ARE CONNECTED
-
+		//fill the struct with the right informations
 		t_args = malloc(sizeof(struct thread_args));
 		memset(t_args, 0, sizeof(struct thread_args));
 		t_args->sock2 = sock2;
@@ -272,6 +257,7 @@ int main(){
 		
 		
 	}
+
 	close(sock2);
 
 	return 0;

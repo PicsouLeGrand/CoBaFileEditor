@@ -5,6 +5,15 @@ pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t condition = PTHREAD_COND_INITIALIZER;
 
 /*
+ * Clean-up and quit
+ */
+void quitter(struct thread_args *args){
+	close(args->sock);
+	close(sock_global);
+	exit(1);
+}
+
+/*
  * Executed by a thread, manage reception of messages from the server on TCP
  */
 void *gestion_recv(void *t_args){
@@ -18,13 +27,13 @@ void *gestion_recv(void *t_args){
 		received = read(args->sock, buff, 99*sizeof(char));
 		buff[received] = '\0';
 		if(first_time){
-			send_con(t_args);
+			send_msg(t_args, PROT_CON);
 			first_time = 0;
 		}
 
 		if(strcmp(buff, "") != 0){
 			//send the buffer to deformatage() for reading
-			deformatage(buff);
+			deformatage(args, buff);
 			//printf("buffer : %s\n", buff);
 			//printf("%lu\n", strlen(buff));
 		}
@@ -133,16 +142,17 @@ int main(int argc, char** argv){
 	pthread_create(&threadUDP, NULL, gestion_ping, NULL);
 	pthread_create(&threadRecv, NULL, gestion_recv, (void *) t_args);
 
+	//wait for everything to be ready before user input
 	pthread_mutex_lock(&mutex);
 	pthread_cond_wait(&condition, &mutex);
 	pthread_mutex_unlock(&mutex);
 
 	while(1) {
-		//TODO envoi de commandes au serveur
 		memset(input, 0, BUFF_SIZE_INPUT * sizeof(char));
-		printf("Enter your command : ");
+		printf("$ ");
 		fgets(input, BUFF_SIZE_INPUT, stdin);
-		//TODO gérer l'input, le formater et l'envoyer
+		//send input to function to analyze it
+		input_deformatage(t_args, input);
 	}
 	
 	close(sock_global);

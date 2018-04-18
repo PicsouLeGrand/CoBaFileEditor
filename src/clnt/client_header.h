@@ -19,6 +19,7 @@
 
 #define PROT_PNG_R "png!"
 #define PROT_CON "con?"
+#define PROT_QUI "qui?"
 
 struct thread_args {
 	int sock;
@@ -31,5 +32,7 @@ void send_msg(struct thread_args *args, char *msg);
 void *gestion_ping();
 void *gestion_recv(void *t_args);
 
-int send_con(struct thread_args *args);
-void deformatage(char *buff);
+void deformatage(struct thread_args *args, char *buff);
+void input_deformatage(struct thread_args *args, char *input);
+
+void quitter(struct thread_args *args);

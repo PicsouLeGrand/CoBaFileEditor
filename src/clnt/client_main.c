@@ -19,13 +19,13 @@ void quitter(struct thread_args *args){
 void *gestion_recv(void *t_args){
 	struct thread_args *args = (struct thread_args *) t_args;
 	int received;
-	char buff[BUFF_SIZE_RECV];
+	char buff[BUFF_SIZE_MEDIUM];
 	int first_time = 1;
 	
-
 	while(1){
-		received = read(args->sock, buff, 99*sizeof(char));
+		received = read(args->sock, buff, BUFF_SIZE_MEDIUM*sizeof(char));
 		buff[received] = '\0';
+		
 		if(first_time){
 			send_msg(t_args, PROT_CON);
 			first_time = 0;
@@ -149,7 +149,6 @@ int main(int argc, char** argv){
 
 	while(1) {
 		memset(input, 0, BUFF_SIZE_INPUT * sizeof(char));
-		printf("$ ");
 		fgets(input, BUFF_SIZE_INPUT, stdin);
 		//send input to function to analyze it
 		input_deformatage(t_args, input);

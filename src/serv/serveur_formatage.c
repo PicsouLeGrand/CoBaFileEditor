@@ -14,7 +14,7 @@ void write_to_log(struct client c, char *msg){
 
 	log_string = malloc(BUFF_SIZE_RECV * sizeof(char));
 	port_c = malloc(10*sizeof(char));
-	
+
 	strcat(log_string, msg);
 	strcat(log_string, " ");
 	strcat(log_string, c.ip);
@@ -46,6 +46,7 @@ int send_msg(struct thread_args *args, char *msg){
 int send_err(int sock, char *message){
 	char *error;
 	error = malloc(BUFF_SIZE_ERR * sizeof(char));
+	memset(error, 0, BUFF_SIZE_ERR * sizeof(char));
 	strcat(error, PROT_ERR);
 	strcat(error, " ");
 	strcat(error, message);
@@ -59,8 +60,13 @@ int send_err(int sock, char *message){
 void deformatage(struct thread_args *args){
 	int received;
 	int is_connected = 0;
+	int i;
 	char buff[BUFF_SIZE_RECV];
-	
+	char *liste;
+	char *nb_clients;
+	char *info_client;
+	char *port;
+
 	received = recv(args->sock2, buff, 99*sizeof(char), 0);
 	buff[received] = '\0';
 
@@ -93,8 +99,42 @@ void deformatage(struct thread_args *args){
 			
 			//for log purposes
 			write_to_log(args->c, buff);
+		} else if(strcmp(buff, PROT_LST) == 0) {
+			//for log purposes
+			write_to_log(args->c, buff);
+
+			printf("> %s | %d --> list of users\n", args->c.ip, args->c.port);
+
+			liste = malloc(BUFF_SIZE_SMALL*sizeof(char));
+			nb_clients = malloc(BUFF_SIZE_SMALL*sizeof(char));
+			info_client = malloc(BUFF_SIZE_MEDIUM*sizeof(char));
+			port = malloc(BUFF_SIZE_SMALL*sizeof(char));
+
+			sprintf(nb_clients, "%d", NB_CLIENTS);
+			strcat(liste, PROT_LST_R);
+			strcat(liste, " Il y a ");
+			strcat(liste, nb_clients);
+			strcat(liste, " client(s)\n");
+			
+			send_msg(args, liste);
+			
+			for(i = 0; i < NB_CLIENTS; i++){
+				memset(info_client, 0, BUFF_SIZE_MEDIUM*sizeof(char));
+				strcat(info_client, PROT_LST_R);
+				strcat(info_client, " ");
+				strcat(info_client, clients[i].ip);
+				strcat(info_client, " | ");
+				sprintf(port, "%d", clients[i].port);
+				strcat(info_client, port);
+				strcat(info_client, "\n");
+				//super moche mais je vois rien d'autre pour le moment
+				sleep(0.001);
+				send_msg(args, info_client);
+			}
 		} else {
 			printf("> %s from : %s and port : %d\n", buff, args->c.ip, args->c.port);
+			//for log purposes
+			write_to_log(args->c, buff);
 		}
 	}
 }

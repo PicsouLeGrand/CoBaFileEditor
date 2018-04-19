@@ -64,7 +64,7 @@ void *pingUDP(){
 
 		//print_all_clients();
 		sleep(PING_INTERVAL);
-		for(i = 0; i <= NB_CLIENTS; i++){
+		for(i = 0; i < NB_CLIENTS; i++){
 			if(clients[i].id != -1){
 				clients[i].unanswered_pings++;
 				if(clients[i].unanswered_pings >= MAX_PINGS){

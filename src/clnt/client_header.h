@@ -16,10 +16,17 @@
 #define BUFF_SIZE_PING 100
 #define BUFF_SIZE_INPUT 1024
 #define BUFF_SIZE_RECV 1024
+#define BUFF_SIZE_SMALL 64
+#define BUFF_SIZE_MEDIUM 256
 
 #define PROT_PNG_R "png!"
 #define PROT_CON "con?"
+#define PROT_CON_R "con!"
 #define PROT_QUI "qui?"
+#define PROT_QUI_R "qui!"
+#define PROT_LST "lst?"
+#define PROT_LST_R "lst!"
+#define PROT_ERR "err! "
 
 struct thread_args {
 	int sock;

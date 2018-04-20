@@ -25,13 +25,14 @@ void send_msg(struct thread_args *args, char *msg){
 void deformatage(struct thread_args *args, char *buff){
 	char *head;
 	char *tail;
+	char *after;
 	char *original;
 
 	original = malloc(strlen(buff) * sizeof(char) + 1);
 	strcpy(original, buff);
 	head = strtok(buff, " ");
-	tail = strtok(NULL, "\n");
-
+	tail = strtok(NULL, SPECIAL_SEPARATOR);
+	
 	// printf("o %s\n", original);
 	// if(tail != NULL) printf("t %s\n", tail);
 
@@ -48,10 +49,13 @@ void deformatage(struct thread_args *args, char *buff){
 		fprintf(stdout, "> OK for disconnect!\n");
 		quitter(args);
 	} else if(strcmp(head, PROT_LST_R) == 0) {
-		fprintf(stdout, "> %s\n", tail);
+		fprintf(stdout, "> %s", tail);
 	} else {
 		fprintf(stderr, "Unrecognized : %s\n", original);
 	}
+
+	if((after = strtok(NULL, "\0")) != NULL)
+		deformatage(args, after);
 }
 
 /*

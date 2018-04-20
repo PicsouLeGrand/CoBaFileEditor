@@ -28,6 +28,8 @@
 #define PROT_LST_R "lst!"
 #define PROT_ERR "err! "
 
+#define SPECIAL_SEPARATOR "\t" //special character used to split messages when several are received at the same time
+
 struct thread_args {
 	int sock;
 };

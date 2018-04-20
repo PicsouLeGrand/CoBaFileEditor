@@ -115,6 +115,7 @@ void deformatage(struct thread_args *args){
 			strcat(liste, " Il y a ");
 			strcat(liste, nb_clients);
 			strcat(liste, " client(s)\n");
+			strcat(liste, SPECIAL_SEPARATOR);
 			
 			send_msg(args, liste);
 			
@@ -127,8 +128,8 @@ void deformatage(struct thread_args *args){
 				sprintf(port, "%d", clients[i].port);
 				strcat(info_client, port);
 				strcat(info_client, "\n");
-				//super moche mais je vois rien d'autre pour le moment
-				sleep(0.001);
+				strcat(info_client, SPECIAL_SEPARATOR);
+				
 				send_msg(args, info_client);
 			}
 		} else {

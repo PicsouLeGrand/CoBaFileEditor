@@ -2,6 +2,7 @@ CC=gcc
 CFLAGS=-Wall -Wextra
 LIBS=-lpthread
 EXEC=serveur client
+LOG=log_connections.txt
 
 all: $(EXEC)
 
@@ -18,4 +19,4 @@ clean:
 	rm -rf serv/*.o clnt/*.o
 
 vanish:
-	rm -rf $(EXEC)
+	rm -rf $(EXEC) $(LOG)

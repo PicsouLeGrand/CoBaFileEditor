@@ -36,6 +36,8 @@
 
 #define ERR_MSG_1 "maximum number of clients reached. Try again later.\n"
 
+#define SPECIAL_SEPARATOR "\t" //special character used to split messages when several are received at the same time
+
 struct client {
 	int id;
 	int port; //port of user

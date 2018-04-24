@@ -13,6 +13,8 @@ int ID_COUNTER = 0;
 int NB_CLIENTS = 0;
 static struct client empty_client;
 int fd;
+pthread_t threads_clients[MAX_CLIENTS];
+
 
 /*
  * Executed by a thread, one instance per client connected
@@ -94,6 +96,7 @@ void remove_client(struct client old_client) {
 	if(old_client.id == -1)
 		printf("> Client was already removed or doesn't exist.\n");
 	else {
+		pthread_cancel(threads_clients[old_client.id]);
 		clients[old_client.id] = empty_client;
 		NB_CLIENTS--;
 	}
@@ -179,13 +182,23 @@ int main(){
 	
 	socklen_t size;
 	pthread_t thread_UDP;
-	pthread_t threads_clients[MAX_CLIENTS];
 	
 	struct sockaddr_in address_sock;
 	struct sockaddr_in caller;
 	struct thread_args *t_args;
+	struct stat st = {0};
 
-	fd = open("log_connections.txt", O_WRONLY | O_CREAT | O_APPEND, 0755);
+	if (stat("logs/", &st) == -1) {
+		if(mkdir("logs/", 0755) == -1)
+			perror("mkdir");
+	}
+
+	if (stat("files/", &st) == -1) {
+		if(mkdir("files/", 0755) == -1)
+			perror("mkdir");
+	}
+
+	fd = open("logs/log_connections.txt", O_WRONLY | O_CREAT | O_APPEND, 0755);
 
 	time(&today);
 	date = *localtime(&today);

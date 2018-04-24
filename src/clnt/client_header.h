@@ -26,9 +26,35 @@
 #define PROT_QUI_R "qui!"
 #define PROT_LST "lst?"
 #define PROT_LST_R "lst!"
-#define PROT_ERR "err! "
+#define PROT_ERR "err!"
+#define PROT_CRE "cre?"
+#define PROT_CRE_R "cre!"
+#define PROT_DEL "del?"
+#define PROT_DEL_R "del!"
+#define PROT_LFI "lfi?"
+#define PROT_LFI_R "lfi!"
+
+#define CMD_HELP "help"
+#define CMD_LSTU "listu"
+#define CMD_QUIT "quit"
+#define CMD_EXIT "exit"
+#define CMD_LSTF "listf"
+#define CMD_CREA "create"
+#define CMD_MODI "modify"
+#define CMD_DELE "delete"
+
+#define CMD_HELP_SHORT "h"
+#define CMD_LSTU_SHORT "lu"
+#define CMD_LSTF_SHORT "lf"
+#define CMD_CREA_SHORT "c"
+#define CMD_MODI_SHORT "m"
+#define CMD_DELE_SHORT "d"
 
 #define SPECIAL_SEPARATOR "\t" //special character used to split messages when several are received at the same time
+
+#define ERR_MSG_1 "maximum number of clients reached. Try again later."
+#define ERR_MSG_2 "error while creating the file, perhaps it exists already?"
+#define ERR_MSG_3 "> Error, you need to specify a filename\n"
 
 struct thread_args {
 	int sock;
@@ -45,3 +71,6 @@ void deformatage(struct thread_args *args, char *buff);
 void input_deformatage(struct thread_args *args, char *input);
 
 void quitter(struct thread_args *args);
+void print_help();
+void create_file(struct thread_args *args, char *name);
+void delete_file(struct thread_args *args, char *name);

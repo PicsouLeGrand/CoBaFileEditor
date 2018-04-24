@@ -2,7 +2,7 @@ CC=gcc
 CFLAGS=-Wall -Wextra
 LIBS=-lpthread
 EXEC=serveur client
-LOG=log_connections.txt
+LOG=logs/log_connections.txt
 
 all: $(EXEC)
 

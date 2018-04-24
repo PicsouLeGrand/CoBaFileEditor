@@ -10,10 +10,12 @@
 #include <netdb.h>
 #include <fcntl.h>
 #include <netinet/tcp.h>
+#include <signal.h>
+#include <dirent.h>
 
 #define MAX_CLIENTS 2
-#define MAX_PINGS 5
-#define PING_INTERVAL 3
+#define MAX_PINGS 3
+#define PING_INTERVAL 2
 
 #define PORT_SERV_TCP 9001
 #define PORT_SERV_UDP "9002"
@@ -28,13 +30,21 @@
 #define PROT_PNG_R "png!"
 #define PROT_CON "con?"
 #define PROT_CON_R "con!"
-#define PROT_ERR "err! "
+#define PROT_ERR "err!"
 #define PROT_QUI "qui?"
 #define PROT_QUI_R "qui!"
 #define PROT_LST "lst?"
 #define PROT_LST_R "lst!"
+#define PROT_CRE "cre?"
+#define PROT_CRE_R "cre!"
+#define PROT_DEL "del?"
+#define PROT_DEL_R "del!"
+#define PROT_LFI "lfi?"
+#define PROT_LFI_R "lfi!"
 
-#define ERR_MSG_1 "maximum number of clients reached. Try again later.\n"
+#define ERR_MSG_1 "maximum number of clients reached. Try again later."
+#define ERR_MSG_2 "error while creating the file, perhaps it exists already?"
+#define ERR_MSG_3 "error while deleting the file, perhaps it's already deleted."
 
 #define SPECIAL_SEPARATOR "\t" //special character used to split messages when several are received at the same time
 

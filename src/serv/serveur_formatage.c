@@ -62,13 +62,28 @@ void deformatage(struct thread_args *args){
 	int is_connected = 0;
 	int i;
 	char buff[BUFF_SIZE_RECV];
+	char *head;
+	char *tail;
+	char *original;
 	char *liste;
 	char *nb_clients;
 	char *info_client;
 	char *port;
+	char *path;
+	char *list_files;
+	DIR *d;
+	struct dirent *dir;
 
 	received = recv(args->sock2, buff, 99*sizeof(char), 0);
+	if(received == -1)
+		perror("received");
+
 	buff[received] = '\0';
+
+	original = malloc(strlen(buff) * sizeof(char) + 1);
+	strcpy(original, buff);
+	head = strtok(buff, " ");
+	tail = strtok(NULL, "\n");
 
 	if(strcmp(buff, "") != 0){
 		//first of all, client need to send con? request
@@ -132,6 +147,51 @@ void deformatage(struct thread_args *args){
 				
 				send_msg(args, info_client);
 			}
+		} else if(strcmp(buff, PROT_LFI) == 0) {
+			//for log purposes
+			write_to_log(args->c, buff);
+
+			printf("> %s | %d --> list of files\n", args->c.ip, args->c.port);
+
+			list_files = malloc(BUFF_SIZE_RECV*sizeof(char));
+
+			d = opendir("files");
+			if(d) {
+				while((dir = readdir(d)) != NULL) {
+					if(strcmp(dir->d_name, ".") != 0 && strcmp(dir->d_name, "..") != 0) {
+						memset(list_files, 0, BUFF_SIZE_RECV*sizeof(char));
+						strcat(list_files, PROT_LFI_R);
+						strcat(list_files, " ");
+						strcat(list_files, dir->d_name);
+						strcat(list_files, "\n");
+						strcat(list_files, SPECIAL_SEPARATOR);
+						send_msg(args, list_files);
+					}
+				}
+				closedir(d);
+			}
+		} else if(strcmp(head, PROT_CRE) == 0) {
+			write_to_log(args->c, buff);
+			printf("> %s | %d --> file creation\n", args->c.ip, args->c.port);
+
+			path = malloc(BUFF_SIZE_RECV*sizeof(char));
+			strcat(path, "files/");
+			strcat(path, tail);
+			if(open(path, O_RDWR | O_CREAT | O_EXCL, 0755) != -1)
+				send_msg(args, PROT_CRE_R);
+			else
+				send_err(args->sock2, ERR_MSG_2);
+		} else if(strcmp(head, PROT_DEL) == 0) {
+			write_to_log(args->c, buff);
+			printf("> %s | %d --> file deletion\n", args->c.ip, args->c.port);
+
+			path = malloc(BUFF_SIZE_RECV*sizeof(char));
+			strcat(path, "files/");
+			strcat(path, tail);
+			if(remove(path) != -1)
+				send_msg(args, PROT_DEL_R);
+			else
+				send_err(args->sock2, ERR_MSG_3);
 		} else {
 			printf("> %s from : %s and port : %d\n", buff, args->c.ip, args->c.port);
 			//for log purposes

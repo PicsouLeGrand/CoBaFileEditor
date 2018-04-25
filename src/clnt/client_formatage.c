@@ -12,10 +12,11 @@ void send_msg(struct thread_args *args, char *msg){
 	char *res;
 
 	res = malloc(BUFF_SIZE_INPUT*sizeof(char));
-	res = strtok(msg, "\n");
+	strcpy(res, msg);
+	res = strtok(res, "\n");
 	strcat(res, "\0");
 
-	if(write(args->sock, msg, strlen(msg) * sizeof(char)) == -1){
+	if(write(args->sock, res, strlen(res) * sizeof(char)) == -1){
 		perror("write send_msg");
 		exit(EXIT_FAILURE);
 	}

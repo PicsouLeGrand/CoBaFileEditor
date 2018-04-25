@@ -158,7 +158,7 @@ void deformatage(struct thread_args *args){
 			d = opendir("files");
 			if(d) {
 				while((dir = readdir(d)) != NULL) {
-					if(strcmp(dir->d_name, ".") != 0 && strcmp(dir->d_name, "..") != 0) {
+					if(strcmp(dir->d_name, ".") != 0 && strcmp(dir->d_name, "..") != 0 && strncmp(dir->d_name, ".nfs", 4) != 0) {
 						memset(list_files, 0, BUFF_SIZE_RECV*sizeof(char));
 						strcat(list_files, PROT_LFI_R);
 						strcat(list_files, " ");

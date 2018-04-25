@@ -9,8 +9,11 @@
  * Send a message through the global TCP socket to the server
  */ 
 void send_msg(struct thread_args *args, char *msg){
-	strtok(msg, "\n");
-	strcat(msg, "\0");
+	char *res;
+
+	res = malloc(BUFF_SIZE_INPUT*sizeof(char));
+	res = strtok(msg, "\n");
+	strcat(res, "\0");
 
 	if(write(args->sock, msg, strlen(msg) * sizeof(char)) == -1){
 		perror("write send_msg");

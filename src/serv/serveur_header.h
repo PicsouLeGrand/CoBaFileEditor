@@ -41,10 +41,13 @@
 #define PROT_DEL_R "del!"
 #define PROT_LFI "lfi?"
 #define PROT_LFI_R "lfi!"
+#define PROT_MOD "mod?"
+#define PROT_MOD_R "mod!"
 
 #define ERR_MSG_1 "maximum number of clients reached. Try again later."
 #define ERR_MSG_2 "error while creating the file, perhaps it exists already?"
 #define ERR_MSG_3 "error while deleting the file, perhaps it's already deleted."
+#define ERR_MSG_4 "error while opening the file, perhaps it doesn't exists?"
 
 #define SPECIAL_SEPARATOR "\t" //special character used to split messages when several are received at the same time
 
@@ -66,8 +69,6 @@ struct thread_args {
 
 extern int fd;
 extern int NB_CLIENTS;
-extern pthread_mutex_t mutex;
-extern pthread_cond_t condition;
 struct client clients[MAX_CLIENTS];
 
 void *pingUDP();

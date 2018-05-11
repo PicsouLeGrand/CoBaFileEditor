@@ -7,11 +7,12 @@
 #include <string.h>
 #include <arpa/inet.h>
 #include <netdb.h>
+#include <ncurses.h>
 
 #define PORT_CLNT_TCP "9001"
 #define PORT_CLNT_UDP "9002"
 #define PORT_CLNT_UDP_INT 9002
-#define ADDR_MULTICAST "239.1.1.1"
+#define ADDR_MULTICAST "225.1.2.4"
 
 #define BUFF_SIZE_PING 100
 #define BUFF_SIZE_INPUT 1024
@@ -33,6 +34,8 @@
 #define PROT_DEL_R "del!"
 #define PROT_LFI "lfi?"
 #define PROT_LFI_R "lfi!"
+#define PROT_MOD "mod?"
+#define PROT_MOD_R "mod!"
 
 #define CMD_HELP "help"
 #define CMD_LSTU "listu"
@@ -73,4 +76,5 @@ void input_deformatage(struct thread_args *args, char *input);
 void quitter(struct thread_args *args);
 void print_help();
 void create_file(struct thread_args *args, char *name);
+void modify_file(struct thread_args *args, char *name);
 void delete_file(struct thread_args *args, char *name);

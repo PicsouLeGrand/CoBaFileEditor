@@ -11,10 +11,18 @@
 void write_to_log(struct client c, char *msg){
 	char *log_string;
 	char *port_c;
+	time_t today;
+	struct tm date;
+	char *string_date;
+
+	time(&today);
+	date = *localtime(&today);
+	string_date = asctime(&date);
 
 	log_string = malloc(BUFF_SIZE_RECV * sizeof(char));
 	port_c = malloc(10*sizeof(char));
 
+	strcat(log_string, string_date);
 	strcat(log_string, msg);
 	strcat(log_string, " ");
 	strcat(log_string, c.ip);
@@ -192,6 +200,40 @@ void deformatage(struct thread_args *args){
 				send_msg(args, PROT_DEL_R);
 			else
 				send_err(args->sock2, ERR_MSG_3);
+		} else if(strcmp(head, PROT_MOD) == 0) {
+			int fd;
+			char *c;
+			char *line;
+			char *msg;
+
+			write_to_log(args->c, buff);
+			printf("> %s | %d --> file modification\n", args->c.ip, args->c.port);
+
+			c = malloc(sizeof(char));
+			msg = malloc(BUFF_SIZE_RECV*sizeof(char));
+			line = malloc(BUFF_SIZE_RECV*sizeof(char));
+			path = malloc(BUFF_SIZE_RECV*sizeof(char));
+
+			memset(msg, 0, sizeof(msg));
+			memset(line, 0, sizeof(line));
+
+			strcat(path, "files/");
+			strcat(path, tail);
+			if((fd = open(path, O_RDWR, 0755)) != -1){
+				while (read(fd, c, 1) != 0){
+					strcat(line, c);
+					if(strcmp(c,"\n") == 0) {
+						strcat(msg, PROT_MOD_R);
+						strcat(msg, " ");
+						strcat(msg, line);
+						strcat(msg, SPECIAL_SEPARATOR);
+						send_msg(args, msg);
+						memset(msg, 0, sizeof(msg));
+						memset(line, 0, sizeof(line));
+					}
+				}
+			} else
+				send_err(args->sock2, ERR_MSG_4);
 		} else {
 			printf("> %s from : %s and port : %d\n", buff, args->c.ip, args->c.port);
 			//for log purposes

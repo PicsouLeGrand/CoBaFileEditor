@@ -62,7 +62,8 @@ void *pingUDP(){
 
 	saddr = first_info->ai_addr;
 	while(1){
-		sendto(sock, png, strlen(png), 0, saddr, (socklen_t) sizeof(struct sockaddr_in));
+		if(sendto(sock, png, strlen(png), 0, saddr, (socklen_t) sizeof(struct sockaddr_in)) == -1)
+			perror("sendto");
 
 		//print_all_clients();
 		sleep(PING_INTERVAL);
@@ -176,10 +177,6 @@ int main(){
 	int sock2;
 	int i;
 
-	time_t today;
-	struct tm date;
-	char *string_date;
-	
 	socklen_t size;
 	pthread_t thread_UDP;
 	
@@ -198,12 +195,7 @@ int main(){
 			perror("mkdir");
 	}
 
-	fd = open("logs/log_connections.txt", O_WRONLY | O_CREAT | O_APPEND, 0755);
-
-	time(&today);
-	date = *localtime(&today);
-	string_date = asctime(&date);
-	write(fd, string_date, strlen(string_date));
+	fd = open("logs/log.txt", O_WRONLY | O_CREAT | O_APPEND, 0755);
 
 	sock = socket(PF_INET, SOCK_STREAM, 0);
 

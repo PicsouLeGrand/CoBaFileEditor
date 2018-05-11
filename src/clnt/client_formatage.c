@@ -5,6 +5,20 @@
 
 #include "client_header.h"
 
+int started = 0;
+pthread_mutex_t mutex2 = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t condition2 = PTHREAD_COND_INITIALIZER;
+
+void *modification_mode(){
+	started = 1;
+	refresh();
+	getch();
+	clear();
+	endwin();
+	started = 0;
+	pthread_exit(NULL);
+}
+
 /*
  * Send a message through the global TCP socket to the server
  */ 
@@ -31,6 +45,10 @@ void deformatage(struct thread_args *args, char *buff){
 	char *tail;
 	char *after;
 	char *original;
+	
+	pthread_t thread_mod_mode;
+	pthread_cond_init(&condition2, NULL);
+	pthread_mutex_init(&mutex2, NULL);
 
 	original = malloc(strlen(buff) * sizeof(char) + 1);
 	strcpy(original, buff);
@@ -39,7 +57,6 @@ void deformatage(struct thread_args *args, char *buff){
 	
 	// printf("o %s\n", original);
 	// if(tail != NULL) printf("t %s\n", tail);
-
 	if(strcmp(head, "Welcome") == 0){
 		fprintf(stdout, "> %s", original);
 	} else if(strcmp(head, PROT_CON_R) == 0) {
@@ -51,7 +68,6 @@ void deformatage(struct thread_args *args, char *buff){
 		if(strcmp(tail, ERR_MSG_1) == 0)
 			quitter(args);
 	} else if(strcmp(head, PROT_QUI_R) == 0) { 
-		fprintf(stdout, "> OK for disconnect!\n");
 		quitter(args);
 	} else if(strcmp(head, PROT_LST_R) == 0) {
 		fprintf(stdout, "> %s", tail);
@@ -61,12 +77,25 @@ void deformatage(struct thread_args *args, char *buff){
 		fprintf(stdout, "> The file was successfully created.\n");
 	} else if(strcmp(head, PROT_DEL_R) == 0) {
 		fprintf(stdout, "> The file was successfully deleted.\n");
+	} else if(strcmp(head, PROT_MOD_R) == 0) {
+		// if(started == 0) {
+			printw("%s", tail);
+			refresh();
+			// if(pthread_create(&thread_mod_mode, NULL, modification_mode, NULL) != 0){
+			// 	perror("pthread error");
+			// 	exit(EXIT_FAILURE);
+			// }
+		// } else {
+		// 	printw("%s", tail);
+		// 	refresh();
+		// }
 	} else {
 		fprintf(stderr, "Unrecognized : %s\n", original);
 	}
 
 	if((after = strtok(NULL, "\0")) != NULL)
 		deformatage(args, after);
+	
 }
 
 /*
@@ -96,18 +125,30 @@ void input_deformatage(struct thread_args *args, char *input){
 			if(tail != NULL)
 				create_file(args, tail);
 			else
-				fprintf(stderr, ERR_MSG_3);
+				fprintf(stderr, "%s", ERR_MSG_3);
 		} else if(strcmp(head, CMD_MODI) == 0 || strcmp(head, CMD_MODI_SHORT) == 0) {
-			
+			if(tail != NULL) {
+				modify_file(args, tail);
+				// initscr();
+				SCREEN *s = newterm(NULL, stdout, stdin);
+				raw();
+				keypad(stdscr, TRUE);
+				clear();
+				getch();
+				endwin();
+				delscreen(s);
+				
+			} else
+				fprintf(stderr, "%s", ERR_MSG_3);
 		} else if(strcmp(head, CMD_DELE) == 0 || strcmp(head, CMD_DELE_SHORT) == 0) {
 			if(tail != NULL)
 				delete_file(args, tail);
 			else
-				fprintf(stderr, ERR_MSG_3);
+				fprintf(stderr, "%s", ERR_MSG_3);
 		} else if(strcmp(head, CMD_LSTF) == 0 || strcmp(head, CMD_LSTF_SHORT) == 0) {
 			send_msg(args, PROT_LFI);
 		} else {
-			fprintf(stdout, "\r> Command not recognized : %s\n", original);
+			fprintf(stderr, "\r> Command not recognized : %s\n", original);
 		}
 	}
 }
@@ -116,7 +157,7 @@ void input_deformatage(struct thread_args *args, char *input){
  * Display the help message
  */
 void print_help(){
-	fprintf(stdout, "> List of available commands :\n"
+	fprintf(stdout,															"> List of available commands :\n"
 		"\t- %s, %s -> display this help\n"
 		"\t- %s, %s -> quit the program\n"
 		"\t- %s, %s -> display a list of current users\n"
@@ -132,6 +173,15 @@ void print_help(){
 void create_file(struct thread_args *args, char *name){
 	char *message = malloc(BUFF_SIZE_INPUT*sizeof(char));
 	strcat(message, PROT_CRE);
+	strcat(message, " ");
+	strcat(message, name);
+
+	send_msg(args, message);
+}
+
+void modify_file(struct thread_args *args, char *name){
+	char *message = malloc(BUFF_SIZE_INPUT*sizeof(char));
+	strcat(message, PROT_MOD);
 	strcat(message, " ");
 	strcat(message, name);
 

@@ -10,6 +10,7 @@ pthread_cond_t condition = PTHREAD_COND_INITIALIZER;
 void quitter(struct thread_args *args){
 	close(args->sock);
 	close(sock_global);
+	endwin();
 	exit(1);
 }
 
@@ -151,7 +152,9 @@ int main(int argc, char** argv){
 		memset(input, 0, BUFF_SIZE_INPUT * sizeof(char));
 		fgets(input, BUFF_SIZE_INPUT, stdin);
 		//send input to function to analyze it
+		endwin();
 		input_deformatage(t_args, input);
+
 	}
 	
 	close(sock_global);

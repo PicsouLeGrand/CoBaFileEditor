@@ -6,18 +6,9 @@
 #include "client_header.h"
 
 int started = 0;
+SCREEN *s = NULL;
 pthread_mutex_t mutex2 = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t condition2 = PTHREAD_COND_INITIALIZER;
-
-void *modification_mode(){
-	started = 1;
-	refresh();
-	getch();
-	clear();
-	endwin();
-	started = 0;
-	pthread_exit(NULL);
-}
 
 /*
  * Send a message through the global TCP socket to the server
@@ -45,10 +36,6 @@ void deformatage(struct thread_args *args, char *buff){
 	char *tail;
 	char *after;
 	char *original;
-	
-	pthread_t thread_mod_mode;
-	pthread_cond_init(&condition2, NULL);
-	pthread_mutex_init(&mutex2, NULL);
 
 	original = malloc(strlen(buff) * sizeof(char) + 1);
 	strcpy(original, buff);
@@ -78,17 +65,20 @@ void deformatage(struct thread_args *args, char *buff){
 	} else if(strcmp(head, PROT_DEL_R) == 0) {
 		fprintf(stdout, "> The file was successfully deleted.\n");
 	} else if(strcmp(head, PROT_MOD_R) == 0) {
-		// if(started == 0) {
-			printw("%s", tail);
-			refresh();
-			// if(pthread_create(&thread_mod_mode, NULL, modification_mode, NULL) != 0){
-			// 	perror("pthread error");
-			// 	exit(EXIT_FAILURE);
-			// }
-		// } else {
-		// 	printw("%s", tail);
-		// 	refresh();
-		// }
+		// pthread_mutex_lock(&mutex2);
+		// pthread_cond_wait(&condition2, &mutex2);
+		// pthread_mutex_unlock(&mutex2);
+
+		pthread_mutex_lock(&mutex2);
+		if(s == NULL){
+			s = newterm(NULL, stdout, stdin);
+			raw();
+			keypad(stdscr, TRUE);
+		}
+		pthread_mutex_unlock(&mutex2);
+
+		printw("%s", tail);
+		refresh();
 	} else {
 		fprintf(stderr, "Unrecognized : %s\n", original);
 	}
@@ -106,6 +96,9 @@ void input_deformatage(struct thread_args *args, char *input){
 	char *tail;
 	char *original;
 
+	// pthread_cond_init(&condition2, NULL);
+	pthread_mutex_init(&mutex2, NULL);
+
 	strtok(input, "\n");
 	strcat(input, "\0");
 
@@ -114,7 +107,7 @@ void input_deformatage(struct thread_args *args, char *input){
 	head = strtok(input, " ");
 	tail = strtok(NULL, "\n");
 
-	if(strcmp(original, "\n") != 0){
+	if(head != NULL && strcmp(original, "\n") != 0 && strcmp(head, "\t") != 0){
 		if(strcmp(head, CMD_QUIT) == 0 || strcmp(head, CMD_EXIT) == 0) {
 			send_msg(args, PROT_QUI);
 		} else if(strcmp(head, CMD_LSTU) == 0 || strcmp(head, CMD_LSTU_SHORT) == 0) {
@@ -129,14 +122,19 @@ void input_deformatage(struct thread_args *args, char *input){
 		} else if(strcmp(head, CMD_MODI) == 0 || strcmp(head, CMD_MODI_SHORT) == 0) {
 			if(tail != NULL) {
 				modify_file(args, tail);
-				// initscr();
-				SCREEN *s = newterm(NULL, stdout, stdin);
-				raw();
-				keypad(stdscr, TRUE);
-				clear();
+
+				pthread_mutex_lock(&mutex2);
+				if(s == NULL){
+					s = newterm(NULL, stdout, stdin);
+					raw();
+					keypad(stdscr, TRUE);
+				}
+				pthread_mutex_unlock(&mutex2);
+
 				getch();
+				clear();
 				endwin();
-				delscreen(s);
+				//delscreen(s);
 				
 			} else
 				fprintf(stderr, "%s", ERR_MSG_3);
@@ -172,6 +170,7 @@ void print_help(){
 
 void create_file(struct thread_args *args, char *name){
 	char *message = malloc(BUFF_SIZE_INPUT*sizeof(char));
+	memset(message, 0, BUFF_SIZE_INPUT*sizeof(char));
 	strcat(message, PROT_CRE);
 	strcat(message, " ");
 	strcat(message, name);
@@ -181,6 +180,7 @@ void create_file(struct thread_args *args, char *name){
 
 void modify_file(struct thread_args *args, char *name){
 	char *message = malloc(BUFF_SIZE_INPUT*sizeof(char));
+	memset(message, 0, BUFF_SIZE_INPUT*sizeof(char));
 	strcat(message, PROT_MOD);
 	strcat(message, " ");
 	strcat(message, name);
@@ -190,6 +190,7 @@ void modify_file(struct thread_args *args, char *name){
 
 void delete_file(struct thread_args *args, char *name){
 	char *message = malloc(BUFF_SIZE_INPUT*sizeof(char));
+	memset(message, 0, BUFF_SIZE_INPUT*sizeof(char));
 	strcat(message, PROT_DEL);
 	strcat(message, " ");
 	strcat(message, name);

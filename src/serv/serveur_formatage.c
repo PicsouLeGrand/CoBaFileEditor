@@ -20,6 +20,7 @@ void write_to_log(struct client c, char *msg){
 	string_date = asctime(&date);
 
 	log_string = malloc(BUFF_SIZE_RECV * sizeof(char));
+	memset(log_string, 0, BUFF_SIZE_RECV * sizeof(char));
 	port_c = malloc(10*sizeof(char));
 
 	strcat(log_string, string_date);
@@ -130,10 +131,11 @@ void deformatage(struct thread_args *args){
 
 			liste = malloc(BUFF_SIZE_SMALL*sizeof(char));
 			nb_clients = malloc(BUFF_SIZE_SMALL*sizeof(char));
-			info_client = malloc(BUFF_SIZE_MEDIUM*sizeof(char));
+			info_client = malloc(BUFF_SIZE_RECV*sizeof(char));
 			port = malloc(BUFF_SIZE_SMALL*sizeof(char));
 
 			sprintf(nb_clients, "%d", NB_CLIENTS);
+			memset(liste, 0, BUFF_SIZE_SMALL*sizeof(char));
 			strcat(liste, PROT_LST_R);
 			strcat(liste, " Il y a ");
 			strcat(liste, nb_clients);
@@ -143,7 +145,7 @@ void deformatage(struct thread_args *args){
 			send_msg(args, liste);
 			
 			for(i = 0; i < NB_CLIENTS; i++){
-				memset(info_client, 0, BUFF_SIZE_MEDIUM*sizeof(char));
+				memset(info_client, 0, BUFF_SIZE_RECV*sizeof(char));
 				strcat(info_client, PROT_LST_R);
 				strcat(info_client, " ");
 				strcat(info_client, clients[i].ip);
@@ -152,7 +154,6 @@ void deformatage(struct thread_args *args){
 				strcat(info_client, port);
 				strcat(info_client, "\n");
 				strcat(info_client, SPECIAL_SEPARATOR);
-				
 				send_msg(args, info_client);
 			}
 		} else if(strcmp(buff, PROT_LFI) == 0) {

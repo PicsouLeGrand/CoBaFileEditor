@@ -8,10 +8,10 @@ pthread_cond_t condition = PTHREAD_COND_INITIALIZER;
  * Clean-up and quit
  */
 void quitter(struct thread_args *args){
+	endwin();
 	close(args->sock);
 	close(sock_global);
-	endwin();
-	delscreen(s);
+	printf("> OK for disconnect!\n");
 	exit(1);
 }
 
@@ -109,6 +109,10 @@ int main(int argc, char** argv){
 		exit(EXIT_FAILURE);
 	}
 
+	initscr();
+	raw();
+	keypad(stdscr, TRUE);
+
 	pthread_cond_init(&condition, NULL);
 	pthread_mutex_init(&mutex, NULL);
 
@@ -151,10 +155,9 @@ int main(int argc, char** argv){
 
 	while(1) {
 		memset(input, 0, BUFF_SIZE_INPUT * sizeof(char));
-		fgets(input, BUFF_SIZE_INPUT, stdin);
+		getnstr(input, BUFF_SIZE_INPUT * sizeof(char));
 		//send input to function to analyze it
 		input_deformatage(t_args, input);
-
 	}
 	
 	close(sock_global);

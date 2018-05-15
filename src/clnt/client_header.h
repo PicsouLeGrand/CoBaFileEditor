@@ -65,6 +65,7 @@ struct thread_args {
 
 extern pthread_mutex_t mutex;
 extern pthread_cond_t condition;
+extern SCREEN *s;
 
 void send_msg(struct thread_args *args, char *msg);
 void *gestion_ping();

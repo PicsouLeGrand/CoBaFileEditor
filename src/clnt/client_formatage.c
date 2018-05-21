@@ -6,12 +6,11 @@
 #include "client_header.h"
 
 int started = 0;
-int reset = 0;
 int row;
 int col;
 int x = 0;
 int y = 0;
-int tmpy = -1;
+int line_number = 1;
 int before;
 SCREEN *s = NULL;
 pthread_mutex_t mutex2 = PTHREAD_MUTEX_INITIALIZER;
@@ -88,8 +87,6 @@ void deformatage(struct thread_args *args, char *buff){
 		}
 		pthread_mutex_unlock(&mutex2);
 
-		// if(tmpy == y)
-		// 	clear();
 		if(before == 0){
 			clear();
 			before = 1;
@@ -98,11 +95,13 @@ void deformatage(struct thread_args *args, char *buff){
 
 		if(strcmp(tail, SPECIAL_EOF) == 0){
 			before = 0;
-		} else
-			printw("%s", tail);
+			line_number = 1;
+		} else {
+			printw("%d | %s", line_number, tail);
+			line_number++;
+		}
 
 		getyx(stdscr, y, x);
-		// refresh();
 
 	} else {
 		// fprintf(stderr, "Unrecognized : %s\n", original);
@@ -166,7 +165,6 @@ void input_deformatage(struct thread_args *args, char *input){
 				while(strcmp(ninput, "exit") != 0 && strcmp(ninput, "quit") != 0){
 					move(y, 0); //move to the end of file print
 					clrtoeol(); //clear the line
-					tmpy = y; //not sure if still useful
 					refresh();
 					before = 0;
 					getstr(ninput); //get user input
@@ -197,6 +195,7 @@ void input_deformatage(struct thread_args *args, char *input){
 void curses_deformatage(struct thread_args *args, char *input){
 	char *head;
 	char *tail;
+	char *after;
 	char *original;
 	char *msg;
 
@@ -208,6 +207,7 @@ void curses_deformatage(struct thread_args *args, char *input){
 	strcpy(original, input);
 	head = strtok(input, " ");
 	tail = strtok(NULL, " ");
+	after = strtok(NULL, "\n");
 
 	if(head != NULL) {
 		if(strcmp(head, CURSES_CMD_DEL) == 0){
@@ -229,6 +229,18 @@ void curses_deformatage(struct thread_args *args, char *input){
 			}
 			send_msg(args, msg);
 			refresh();
+		} else if(strcmp(head, CURSES_CMD_MOD) == 0){
+			if(tail == NULL || after == NULL){
+				printw("%s", ERR_MSG_4);
+				refresh();
+			} else {
+				strcat(msg, CURSES_MOD);
+				strcat(msg, " ");
+				strcat(msg, tail);
+				strcat(msg, " ");
+				strcat(msg, after);
+				send_msg(args, msg);
+			}
 		}
 	}
 }
@@ -244,10 +256,16 @@ void print_help(){
 		"\t- %s, %s -> display a list of current files\n"
 		"\t- %s, %s [filename] -> create a file with name [filename]\n"
 		"\t- %s, %s [filename] -> modify a file with name [filename]\n"
-		"\t- %s, %s [filename] -> delete a file with name [filename]\n",
+		"\t- %s, %s [filename] -> delete a file with name [filename]\n"
+		"\t----------- While in Curses mode-------------\n"
+		"\t- %s [line number] -> delete a line\n"
+		"\t- %s (line number) -> insert a line at (line number), or at the end\n"
+		"\t- %s [line number] [text]-> modify a line\n"
+		"\t- %s -> quit Curses mode\n",
 		CMD_HELP, CMD_HELP_SHORT, CMD_EXIT, CMD_QUIT, CMD_LSTU, CMD_LSTU_SHORT,
 		CMD_LSTF, CMD_LSTF_SHORT, CMD_CREA, CMD_CREA_SHORT,
-		CMD_MODI, CMD_MODI_SHORT, CMD_DELE, CMD_DELE_SHORT);
+		CMD_MODI, CMD_MODI_SHORT, CMD_DELE, CMD_DELE_SHORT,
+		CURSES_CMD_DEL, CURSES_CMD_INS, CURSES_CMD_MOD, CMD_QUIT);
 }
 
 /*

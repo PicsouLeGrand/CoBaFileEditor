@@ -55,11 +55,14 @@
 
 #define CURSES_CMD_DEL "d"
 #define CURSES_CMD_INS "i"
+#define CURSES_CMD_MOD "m"
 
 #define CURSES_DEL "dlg?"
 #define CURSES_DEL_R "dlg!"
 #define CURSES_INS "ilg?"
-#define CURSES_INS_R "ilg!"	
+#define CURSES_INS_R "ilg!"
+#define CURSES_MOD "mlg?"
+#define CURSES_MOD_R "mlg!"
 
 #define SPECIAL_SEPARATOR "\t" //special character used to split messages when several are received at the same time
 #define SPECIAL_EOF "~#{[|``|[{#~" //special char used for synchronization in ncurses mode
@@ -68,6 +71,7 @@
 #define ERR_MSG_2 "error while creating the file, perhaps it exists already?"
 #define ERR_MSG_3 "> Error, you need to specify a filename\n"
 #define ERR_MSG_4 "> Error, you need to specify a line number"
+#define ERR_MSG_5 "> Error, you need to specify a line number and a text"
 
 struct thread_args {
 	int sock;

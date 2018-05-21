@@ -3,7 +3,7 @@ CFLAGS=-Wall -Wextra
 LIBS=-lpthread
 CURSES=-lncurses
 EXEC=serveur client
-LOG=logs/log_connections.txt
+LOG=logs/log.txt
 
 all: $(EXEC)
 

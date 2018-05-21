@@ -238,8 +238,6 @@ void curses_line_delete(struct thread_args *args, char *buff, char *tail){
 	pthread_mutex_unlock(&mutex);
 	send_modifs_to_all(args);
 
-	//delete the line
-	//tell others that the line is deleted
 	//quand on supprime un fichier on le supprime de la liste des autres
 }
 
@@ -310,6 +308,59 @@ void curses_line_insert(struct thread_args *args, char *buff, char *tail){
 }
 
 /*
+ * Used to insert a line into a file when in ncurses mode
+ */
+void curses_line_modification(struct thread_args *args, char *buff, char *tail, char *after){
+	int replica_fd;
+	int path_fd;
+	int line_number;
+	char *c;
+	char *replica = "replica.c";
+	int temp = 1;
+
+	c = malloc(sizeof(char));
+
+	line_number = strtol(tail, NULL, 10);
+
+	write_to_log(args->c, buff);
+	printf("> %s | %d ==> line modification [CURSES]\n", args->c.ip, args->c.port);
+		
+
+	pthread_mutex_lock(&mutex);
+	//open the file for replication
+	if((replica_fd = open(replica, O_RDWR | O_CREAT | O_EXCL, 0755)) == -1){
+		perror("open curses");
+	}
+	//open the original file
+	if((path_fd = open(args->c.file, O_RDONLY, 0755)) == -1){
+		perror("open curses 2");
+	}
+
+	//copy the content of path into replica, with the line modified
+	while(read(path_fd, c, 1) != 0){
+		if(temp != line_number)
+			write(replica_fd, c, 1);
+		else {
+			if(strcmp(c, "\n") == 0){
+				write(replica_fd, after, strlen(after));
+				write(replica_fd, "\n", 1);
+			}
+		}
+
+		if(strcmp(c,"\n") == 0)
+			temp++;
+	}
+
+	close(replica_fd);
+	close(path_fd);
+	remove(args->c.file);
+	rename(replica, args->c.file);
+
+	pthread_mutex_unlock(&mutex);
+	send_modifs_to_all(args);
+}
+
+/*
  * For each client modifying the file, send them the modified file
  */
 void send_modifs_to_all(struct thread_args *args){
@@ -336,6 +387,7 @@ void send_modifs_to_all(struct thread_args *args){
 void deformatage(struct thread_args *args){
 	int received;
 	int is_connected = 0;
+	int i;
 	char buff[BUFF_SIZE_RECV];
 	char *head;
 	char *tail;
@@ -353,7 +405,7 @@ void deformatage(struct thread_args *args){
 	strcpy(original, buff);
 	head = strtok(buff, " ");
 	tail = strtok(NULL, " ");
-	after = strtok(NULL, " ");
+	after = strtok(NULL, "\n");
 
 	if(strcmp(buff, "") != 0){
 		//first of all, client need to send con? request
@@ -406,9 +458,14 @@ void deformatage(struct thread_args *args){
 			path = malloc(BUFF_SIZE_RECV*sizeof(char));
 			strcat(path, "files/");
 			strcat(path, tail);
-			if(remove(path) != -1)
+			if(remove(path) != -1){
 				send_msg(args, PROT_DEL_R);
-			else
+				//delete the file from all clients
+				for(i = 0; i < MAX_CLIENTS; i++){
+					if(strcmp(tail, clients[i].file) == 0)
+						clients[i].file = NULL;
+				}
+			} else
 				send_err(args->sock2, ERR_MSG_3);
 		} else if(strcmp(head, PROT_MOD) == 0) {
 			write_to_log(args->c, buff);
@@ -418,6 +475,8 @@ void deformatage(struct thread_args *args){
 			curses_line_delete(args, buff, tail);
 		} else if(strcmp(head, CURSES_INS) == 0) {
 			curses_line_insert(args, buff, tail);
+		} else if(strcmp(head, CURSES_MOD) == 0) {
+			curses_line_modification(args, buff, tail, after);
 		} else {
 			printf("> %s from : %s and port : %d\n", buff, args->c.ip, args->c.port);
 			//for log purposes

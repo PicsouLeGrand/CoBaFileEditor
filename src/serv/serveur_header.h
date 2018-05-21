@@ -48,6 +48,8 @@
 #define CURSES_DEL_R "dlg!"
 #define CURSES_INS "ilg?"
 #define CURSES_INS_R "ilg!"
+#define CURSES_MOD "mlg?"
+#define CURSES_MOD_R "mlg!"
 
 #define ERR_MSG_1 "maximum number of clients reached. Try again later."
 #define ERR_MSG_2 "error while creating the file, perhaps it exists already?"
@@ -102,4 +104,5 @@ void liste_users(struct thread_args *args, char *buff);
 void liste_files(struct thread_args *args, char *buff);
 void curses_line_delete(struct thread_args *args, char *buff, char *tail);
 void curses_line_insert(struct thread_args *args, char *buff, char *tail);
+void curses_line_modification(struct thread_args *args, char *buff, char *tail, char *after);
 void send_modifs_to_all(struct thread_args *args);

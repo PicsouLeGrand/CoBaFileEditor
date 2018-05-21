@@ -5,6 +5,7 @@
 
 #include "serveur_header.h"
 
+
 /*
  * Format a string to write in the log file
  */
@@ -64,24 +65,283 @@ int send_err(int sock, char *message){
 }
 
 /*
+ * Send a modified file back to the user, uses the user terminal height to
+ * send the appropriate ammount of lines from the file
+ */
+void modification(struct thread_args *args, char *tail, char *after){
+	int fd;
+	int rows;
+	char *c;
+	char *line;
+	char *msg;
+	char *path;
+
+	args->c.nb_open_files++;
+	args->c.is_modifying++;
+	strcpy(args->c.height, after);
+
+	c = malloc(sizeof(char));
+	msg = malloc(BUFF_SIZE_RECV*sizeof(char));
+	line = malloc(BUFF_SIZE_RECV*sizeof(char));
+	path = malloc(BUFF_SIZE_RECV*sizeof(char));
+
+	rows = atoi(after);
+
+	memset(msg, 0, sizeof(msg));
+	memset(line, 0, sizeof(line));
+
+	strcpy(args->c.file, tail);
+
+	if((fd = open(tail, O_RDWR, 0755)) != -1){
+		while (read(fd, c, 1) != 0 && rows != 0){
+			strcat(line, c);
+			if(strcmp(c,"\n") == 0) {
+				strcat(msg, PROT_MOD_R);
+				strcat(msg, " ");
+				strcat(msg, line);
+				strcat(msg, SPECIAL_SEPARATOR);
+				send_msg(args, msg);
+				memset(msg, 0, sizeof(msg));
+				memset(line, 0, sizeof(line));
+				rows--;
+			}
+		}
+		strcat(msg, PROT_MOD_R);
+		strcat(msg, " ");
+		strcat(msg, SPECIAL_EOF);
+		send_msg(args, msg);
+
+	} else {
+		perror("open mod");
+		send_err(args->sock2, ERR_MSG_4);
+	}
+}
+
+/*
+ * Send the list of current users
+ */
+void liste_users(struct thread_args *args, char *buff){
+	char *liste;
+	char *nb_clients;
+	char *info_client;
+	char *port;
+	int i;
+
+	//for log purposes
+	write_to_log(args->c, buff);
+
+	printf("> %s | %d --> list of users\n", args->c.ip, args->c.port);
+
+	liste = malloc(BUFF_SIZE_SMALL*sizeof(char));
+	nb_clients = malloc(BUFF_SIZE_SMALL*sizeof(char));
+	info_client = malloc(BUFF_SIZE_RECV*sizeof(char));
+	port = malloc(BUFF_SIZE_SMALL*sizeof(char));
+
+	sprintf(nb_clients, "%d", NB_CLIENTS);
+	memset(liste, 0, BUFF_SIZE_SMALL*sizeof(char));
+	strcat(liste, PROT_LST_R);
+	strcat(liste, " Il y a ");
+	strcat(liste, nb_clients);
+	strcat(liste, " client(s)\n");
+	strcat(liste, SPECIAL_SEPARATOR);
+			
+	send_msg(args, liste);
+	
+	for(i = 0; i < NB_CLIENTS; i++){
+		memset(info_client, 0, BUFF_SIZE_RECV*sizeof(char));
+		strcat(info_client, PROT_LST_R);
+		strcat(info_client, " ");
+		strcat(info_client, clients[i].ip);
+		strcat(info_client, " | ");
+		sprintf(port, "%d", clients[i].port);
+		strcat(info_client, port);
+		strcat(info_client, "\n");
+		strcat(info_client, SPECIAL_SEPARATOR);
+		send_msg(args, info_client);
+	}
+}
+
+/*
+ * Send the list of current files
+ */
+void liste_files(struct thread_args *args, char *buff){
+	char *list_files;
+	DIR *d;
+	struct dirent *dir;
+
+	//for log purposes
+	write_to_log(args->c, buff);
+
+	printf("> %s | %d --> list of files\n", args->c.ip, args->c.port);
+
+	list_files = malloc(BUFF_SIZE_RECV*sizeof(char));
+
+	d = opendir("files");
+	if(d) {
+		while((dir = readdir(d)) != NULL) {
+			if(strcmp(dir->d_name, ".") != 0 && strcmp(dir->d_name, "..") != 0 && strncmp(dir->d_name, ".nfs", 4) != 0) {
+				memset(list_files, 0, BUFF_SIZE_RECV*sizeof(char));
+				strcat(list_files, PROT_LFI_R);
+				strcat(list_files, " ");
+				strcat(list_files, dir->d_name);
+				strcat(list_files, "\n");
+				strcat(list_files, SPECIAL_SEPARATOR);
+				send_msg(args, list_files);
+			}
+		}
+		closedir(d);
+	}	
+}
+
+/*
+ * Used to delete a line from a file when in ncurses mode
+ */
+void curses_line_delete(struct thread_args *args, char *buff, char *tail){
+	int replica_fd;
+	int path_fd;
+	int line_number;
+	char *c;
+	char *replica = "replica.c";
+	int temp = 1;
+
+	c = malloc(sizeof(char));
+
+	line_number = strtol(tail, NULL, 10);
+
+	write_to_log(args->c, buff);
+	printf("> %s | %d ==> line deletion [CURSES]\n", args->c.ip, args->c.port);
+		
+
+	pthread_mutex_lock(&mutex);
+	//open the file for replication
+	if((replica_fd = open(replica, O_RDWR | O_CREAT | O_EXCL, 0755)) == -1){
+		perror("open curses");
+	}
+	//open the original file
+	if((path_fd = open(args->c.file, O_RDONLY, 0755)) == -1){
+		perror("open curses 2");
+	}
+
+	//copy the content of path into replica, without the line deleted
+	while(read(path_fd, c, 1) != 0){
+		if(temp != line_number)
+			write(replica_fd, c, 1);
+		if(strcmp(c,"\n") == 0)
+			temp++;
+	}
+
+	close(replica_fd);
+	close(path_fd);
+	remove(args->c.file);
+	rename(replica, args->c.file);
+
+	pthread_mutex_unlock(&mutex);
+	send_modifs_to_all(args);
+
+	//delete the line
+	//tell others that the line is deleted
+	//quand on supprime un fichier on le supprime de la liste des autres
+}
+
+/*
+ * Used to insert a blank line into a file when in ncurses mode
+ */
+void curses_line_insert(struct thread_args *args, char *buff, char *tail){
+	int replica_fd;
+	int path_fd;
+	int line_number = -1;
+	char *c;
+	char *sentence;
+	char *replica = "replica.c";
+	int temp = 1;
+
+	c = malloc(sizeof(char));
+	sentence = malloc(BUFF_SIZE_RECV*sizeof(char));
+
+	if(tail != NULL)
+		line_number = strtol(tail, NULL, 10);
+
+	write_to_log(args->c, buff);
+	printf("> %s | %d ==> line insertion [CURSES]\n", args->c.ip, args->c.port);
+		
+
+	pthread_mutex_lock(&mutex);
+	//open the file for replication
+	if((replica_fd = open(replica, O_RDWR | O_CREAT | O_EXCL, 0755)) == -1){
+		perror("open curses");
+	}
+	//open the original file
+	if((path_fd = open(args->c.file, O_RDONLY, 0755)) == -1){
+		perror("open curses 2");
+	}
+
+	//copy the content of path into replica, without the line deleted
+	while(read(path_fd, c, 1) != 0){
+		strcat(sentence, c);
+		if(temp != line_number)
+			write(replica_fd, c, 1);
+		else {
+			if(strcmp(c, "\n") == 0){
+				strcat(sentence, "\n");
+				write(replica_fd, sentence, strlen(sentence));
+			}
+		}
+		if(strcmp(c,"\n") == 0){
+			memset(sentence, 0, BUFF_SIZE_RECV*sizeof(char));
+			temp++;
+		}
+	}
+
+	//if tail is null then insert at the end of file
+	if(tail == NULL)
+		write(replica_fd, "\n", 1);
+	
+	close(replica_fd);
+	close(path_fd);
+	remove(args->c.file);
+	rename(replica, args->c.file);
+
+	pthread_mutex_unlock(&mutex);
+	send_modifs_to_all(args);
+
+	//delete the line
+	//tell others that the line is deleted
+	//quand on supprime un fichier on le supprime de la liste des autres
+}
+
+/*
+ * For each client modifying the file, send them the modified file
+ */
+void send_modifs_to_all(struct thread_args *args){
+	int i;
+	char *path;
+
+	path = malloc(BUFF_SIZE_RECV*sizeof(char));
+	
+	strcpy(path, args->c.file);
+	strtok(path, "/");
+	path = strtok(NULL, "");
+	//modification(args, path, args->c.height);
+
+	for(i = 0; i < NB_CLIENTS; i++){
+		if(strcmp(args->c.file, clients[i].file) == 0){
+			modification(global_args[i], clients[i].file, clients[i].height);
+		}
+	}
+}
+
+/*
  * read a message from the socket and then act accordingly
  */
 void deformatage(struct thread_args *args){
 	int received;
 	int is_connected = 0;
-	int i;
 	char buff[BUFF_SIZE_RECV];
 	char *head;
 	char *tail;
+	char *after;
 	char *original;
-	char *liste;
-	char *nb_clients;
-	char *info_client;
-	char *port;
 	char *path;
-	char *list_files;
-	DIR *d;
-	struct dirent *dir;
 
 	received = recv(args->sock2, buff, 99*sizeof(char), 0);
 	if(received == -1)
@@ -92,7 +352,8 @@ void deformatage(struct thread_args *args){
 	original = malloc(strlen(buff) * sizeof(char) + 1);
 	strcpy(original, buff);
 	head = strtok(buff, " ");
-	tail = strtok(NULL, "\n");
+	tail = strtok(NULL, " ");
+	after = strtok(NULL, " ");
 
 	if(strcmp(buff, "") != 0){
 		//first of all, client need to send con? request
@@ -124,61 +385,9 @@ void deformatage(struct thread_args *args){
 			//for log purposes
 			write_to_log(args->c, buff);
 		} else if(strcmp(buff, PROT_LST) == 0) {
-			//for log purposes
-			write_to_log(args->c, buff);
-
-			printf("> %s | %d --> list of users\n", args->c.ip, args->c.port);
-
-			liste = malloc(BUFF_SIZE_SMALL*sizeof(char));
-			nb_clients = malloc(BUFF_SIZE_SMALL*sizeof(char));
-			info_client = malloc(BUFF_SIZE_RECV*sizeof(char));
-			port = malloc(BUFF_SIZE_SMALL*sizeof(char));
-
-			sprintf(nb_clients, "%d", NB_CLIENTS);
-			memset(liste, 0, BUFF_SIZE_SMALL*sizeof(char));
-			strcat(liste, PROT_LST_R);
-			strcat(liste, " Il y a ");
-			strcat(liste, nb_clients);
-			strcat(liste, " client(s)\n");
-			strcat(liste, SPECIAL_SEPARATOR);
-			
-			send_msg(args, liste);
-			
-			for(i = 0; i < NB_CLIENTS; i++){
-				memset(info_client, 0, BUFF_SIZE_RECV*sizeof(char));
-				strcat(info_client, PROT_LST_R);
-				strcat(info_client, " ");
-				strcat(info_client, clients[i].ip);
-				strcat(info_client, " | ");
-				sprintf(port, "%d", clients[i].port);
-				strcat(info_client, port);
-				strcat(info_client, "\n");
-				strcat(info_client, SPECIAL_SEPARATOR);
-				send_msg(args, info_client);
-			}
+			liste_users(args, buff);
 		} else if(strcmp(buff, PROT_LFI) == 0) {
-			//for log purposes
-			write_to_log(args->c, buff);
-
-			printf("> %s | %d --> list of files\n", args->c.ip, args->c.port);
-
-			list_files = malloc(BUFF_SIZE_RECV*sizeof(char));
-
-			d = opendir("files");
-			if(d) {
-				while((dir = readdir(d)) != NULL) {
-					if(strcmp(dir->d_name, ".") != 0 && strcmp(dir->d_name, "..") != 0 && strncmp(dir->d_name, ".nfs", 4) != 0) {
-						memset(list_files, 0, BUFF_SIZE_RECV*sizeof(char));
-						strcat(list_files, PROT_LFI_R);
-						strcat(list_files, " ");
-						strcat(list_files, dir->d_name);
-						strcat(list_files, "\n");
-						strcat(list_files, SPECIAL_SEPARATOR);
-						send_msg(args, list_files);
-					}
-				}
-				closedir(d);
-			}
+			liste_files(args, buff);
 		} else if(strcmp(head, PROT_CRE) == 0) {
 			write_to_log(args->c, buff);
 			printf("> %s | %d --> file creation\n", args->c.ip, args->c.port);
@@ -202,39 +411,13 @@ void deformatage(struct thread_args *args){
 			else
 				send_err(args->sock2, ERR_MSG_3);
 		} else if(strcmp(head, PROT_MOD) == 0) {
-			int fd;
-			char *c;
-			char *line;
-			char *msg;
-
 			write_to_log(args->c, buff);
 			printf("> %s | %d --> file modification\n", args->c.ip, args->c.port);
-
-			c = malloc(sizeof(char));
-			msg = malloc(BUFF_SIZE_RECV*sizeof(char));
-			line = malloc(BUFF_SIZE_RECV*sizeof(char));
-			path = malloc(BUFF_SIZE_RECV*sizeof(char));
-
-			memset(msg, 0, sizeof(msg));
-			memset(line, 0, sizeof(line));
-
-			strcat(path, "files/");
-			strcat(path, tail);
-			if((fd = open(path, O_RDWR, 0755)) != -1){
-				while (read(fd, c, 1) != 0){
-					strcat(line, c);
-					if(strcmp(c,"\n") == 0) {
-						strcat(msg, PROT_MOD_R);
-						strcat(msg, " ");
-						strcat(msg, line);
-						strcat(msg, SPECIAL_SEPARATOR);
-						send_msg(args, msg);
-						memset(msg, 0, sizeof(msg));
-						memset(line, 0, sizeof(line));
-					}
-				}
-			} else
-				send_err(args->sock2, ERR_MSG_4);
+			modification(args, tail, after);
+		} else if(strcmp(head, CURSES_DEL) == 0) {
+			curses_line_delete(args, buff, tail);
+		} else if(strcmp(head, CURSES_INS) == 0) {
+			curses_line_insert(args, buff, tail);
 		} else {
 			printf("> %s from : %s and port : %d\n", buff, args->c.ip, args->c.port);
 			//for log purposes

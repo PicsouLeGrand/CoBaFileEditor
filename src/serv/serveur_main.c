@@ -3,7 +3,7 @@
 /*
  * TODO
  *
- * si le mec se reco avant qu'on le supprime il reprend sa place d'avant
+ * 
  * 
  * TODO
  */
@@ -14,6 +14,7 @@ int NB_CLIENTS = 0;
 static struct client empty_client;
 int fd;
 pthread_t threads_clients[MAX_CLIENTS];
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 
 /*
@@ -22,7 +23,7 @@ pthread_t threads_clients[MAX_CLIENTS];
 void *client_mainloop(void *t_args) {
 	struct thread_args *args = (struct thread_args *) t_args;
 
-	add_client(args->c);
+	add_client(args->c, args);
 	send_welco(args);
 	
 	NB_CLIENTS++;
@@ -86,8 +87,9 @@ void *pingUDP(){
 /*
  * Add a client to the master list
  */
-void add_client(struct client new_client) {
+void add_client(struct client new_client, struct thread_args *args) {
 	clients[ID_COUNTER] = new_client;
+	global_args[ID_COUNTER] = args;
 }
 
 /*
@@ -99,6 +101,7 @@ void remove_client(struct client old_client) {
 	else {
 		pthread_cancel(threads_clients[old_client.id]);
 		clients[old_client.id] = empty_client;
+		global_args[old_client.id] = NULL;
 		NB_CLIENTS--;
 	}
 }
@@ -111,6 +114,7 @@ void print_client(struct client c) {
 	printf("Port          : %d\n", c.port);
 	printf("IP            : %s\n", c.ip);
 	printf("Nb open files : %d\n", c.nb_open_files);
+	printf("Height        : %s\n", c.height);
 	switch(c.is_modifying){
 		case(0):
 			printf("Is modifying  : NO\n");
@@ -147,6 +151,8 @@ struct client create_empty_client(){
 	c.port = -1;
 	c.ip = "-1";
 	c.nb_open_files = -1;
+	c.file = NULL;
+	c.height = "-1";
 	c.is_modifying = -1;
 	c.line_nb = -1;
 	c.unanswered_pings = -1;
@@ -165,6 +171,8 @@ struct client create_client(struct sockaddr_in caller){
 	new_client.ip = malloc(INET_ADDRSTRLEN * sizeof(char));
 	new_client.ip = inet_ntoa(caller.sin_addr);
 	new_client.nb_open_files = 0;
+	new_client.file = malloc(BUFF_SIZE_MEDIUM * sizeof(char));
+	new_client.height = malloc(4*sizeof(char));
 	new_client.is_modifying = 0;
 	new_client.line_nb = 0;
 	new_client.unanswered_pings = 0;
@@ -184,6 +192,8 @@ int main(){
 	struct sockaddr_in caller;
 	struct thread_args *t_args;
 	struct stat st = {0};
+
+	pthread_mutex_init(&mutex, NULL);
 
 	if (stat("logs/", &st) == -1) {
 		if(mkdir("logs/", 0755) == -1)

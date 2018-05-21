@@ -6,6 +6,13 @@
 #include "client_header.h"
 
 int started = 0;
+int reset = 0;
+int row;
+int col;
+int x = 0;
+int y = 0;
+int tmpy = -1;
+int before;
 SCREEN *s = NULL;
 pthread_mutex_t mutex2 = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t condition2 = PTHREAD_COND_INITIALIZER;
@@ -42,6 +49,8 @@ void deformatage(struct thread_args *args, char *buff){
 	head = strtok(buff, " ");
 	tail = strtok(NULL, SPECIAL_SEPARATOR);
 	
+	getmaxyx(stdscr, row, col);
+
 	// printf("o %s\n", original);
 	// if(tail != NULL) printf("t %s\n", tail);
 	if(strcmp(head, "Welcome") == 0){
@@ -50,7 +59,11 @@ void deformatage(struct thread_args *args, char *buff){
 		fprintf(stdout, "> You are now connected.\n");
 		pthread_cond_signal(&condition);
 	} else if(strcmp(head, PROT_ERR) == 0) {
-		fprintf(stderr, "> Server error : %s\n", tail);
+		if(started){
+			printw("> Server error : %s\n", tail);
+			refresh();
+		} else
+			fprintf(stderr, "> Server error : %s\n", tail);
 
 		if(strcmp(tail, ERR_MSG_1) == 0)
 			quitter(args);
@@ -65,27 +78,39 @@ void deformatage(struct thread_args *args, char *buff){
 	} else if(strcmp(head, PROT_DEL_R) == 0) {
 		fprintf(stdout, "> The file was successfully deleted.\n");
 	} else if(strcmp(head, PROT_MOD_R) == 0) {
-		// pthread_mutex_lock(&mutex2);
-		// pthread_cond_wait(&condition2, &mutex2);
-		// pthread_mutex_unlock(&mutex2);
-
 		pthread_mutex_lock(&mutex2);
 		if(s == NULL){
 			s = newterm(NULL, stdout, stdin);
 			raw();
 			keypad(stdscr, TRUE);
+			getmaxyx(stdscr, row, col);
+			started = 1;
 		}
 		pthread_mutex_unlock(&mutex2);
 
-		printw("%s", tail);
-		refresh();
+		// if(tmpy == y)
+		// 	clear();
+		if(before == 0){
+			clear();
+			before = 1;
+		} else
+			refresh();
+
+		if(strcmp(tail, SPECIAL_EOF) == 0){
+			before = 0;
+		} else
+			printw("%s", tail);
+
+		getyx(stdscr, y, x);
+		// refresh();
+
 	} else {
-		fprintf(stderr, "Unrecognized : %s\n", original);
+		// fprintf(stderr, "Unrecognized : %s\n", original);
 	}
+	
 
 	if((after = strtok(NULL, "\0")) != NULL)
 		deformatage(args, after);
-	
 }
 
 /*
@@ -95,12 +120,17 @@ void input_deformatage(struct thread_args *args, char *input){
 	char *head;
 	char *tail;
 	char *original;
+	char *ninput;
 
 	// pthread_cond_init(&condition2, NULL);
 	pthread_mutex_init(&mutex2, NULL);
+	getmaxyx(stdscr, row, col);
 
 	strtok(input, "\n");
 	strcat(input, "\0");
+
+	ninput = malloc(BUFF_SIZE_INPUT*sizeof(char));
+	memset(ninput, 0, BUFF_SIZE_INPUT*sizeof(char));
 
 	original = malloc(strlen(input) * sizeof(char) + 1);
 	strcpy(original, input);
@@ -121,21 +151,31 @@ void input_deformatage(struct thread_args *args, char *input){
 				fprintf(stderr, "%s", ERR_MSG_3);
 		} else if(strcmp(head, CMD_MODI) == 0 || strcmp(head, CMD_MODI_SHORT) == 0) {
 			if(tail != NULL) {
-				modify_file(args, tail);
-
 				pthread_mutex_lock(&mutex2);
 				if(s == NULL){
 					s = newterm(NULL, stdout, stdin);
 					raw();
 					keypad(stdscr, TRUE);
+					getmaxyx(stdscr, row, col);
+					started = 1;
 				}
 				pthread_mutex_unlock(&mutex2);
 
-				getch();
-				clear();
-				endwin();
-				//delscreen(s);
+				modify_file(args, tail);
+
+				while(strcmp(ninput, "exit") != 0 && strcmp(ninput, "quit") != 0){
+					move(y, 0); //move to the end of file print
+					clrtoeol(); //clear the line
+					tmpy = y; //not sure if still useful
+					refresh();
+					before = 0;
+					getstr(ninput); //get user input
+					curses_deformatage(args, ninput);
+					refresh();
+				}
+
 				
+				endwin();
 			} else
 				fprintf(stderr, "%s", ERR_MSG_3);
 		} else if(strcmp(head, CMD_DELE) == 0 || strcmp(head, CMD_DELE_SHORT) == 0) {
@@ -147,6 +187,48 @@ void input_deformatage(struct thread_args *args, char *input){
 			send_msg(args, PROT_LFI);
 		} else {
 			fprintf(stderr, "\r> Command not recognized : %s\n", original);
+		}
+	}
+}
+
+/*
+ * Manage the input from inside the file modification mode
+ */
+void curses_deformatage(struct thread_args *args, char *input){
+	char *head;
+	char *tail;
+	char *original;
+	char *msg;
+
+	before = 1;
+
+	msg = malloc(BUFF_SIZE_INPUT*sizeof(char));
+	memset(msg, 0, BUFF_SIZE_INPUT*sizeof(char));
+	original = malloc(strlen(input) * sizeof(char) + 1);
+	strcpy(original, input);
+	head = strtok(input, " ");
+	tail = strtok(NULL, " ");
+
+	if(head != NULL) {
+		if(strcmp(head, CURSES_CMD_DEL) == 0){
+			if(tail != NULL){
+				strcat(msg, CURSES_DEL);
+				strcat(msg, " ");
+				strcat(msg, tail);
+				send_msg(args, msg);
+				refresh();
+			} else {
+				printw("%s", ERR_MSG_4);
+				refresh();
+			}
+		} else if(strcmp(head, CURSES_CMD_INS) == 0){
+			strcat(msg, CURSES_INS);
+			if(tail != NULL) {
+				strcat(msg, " ");
+				strcat(msg, tail);
+			}
+			send_msg(args, msg);
+			refresh();
 		}
 	}
 }
@@ -168,6 +250,9 @@ void print_help(){
 		CMD_MODI, CMD_MODI_SHORT, CMD_DELE, CMD_DELE_SHORT);
 }
 
+/*
+ * Format a message to create a file
+ */
 void create_file(struct thread_args *args, char *name){
 	char *message = malloc(BUFF_SIZE_INPUT*sizeof(char));
 	memset(message, 0, BUFF_SIZE_INPUT*sizeof(char));
@@ -178,16 +263,29 @@ void create_file(struct thread_args *args, char *name){
 	send_msg(args, message);
 }
 
+/*
+ * Format a message to modify a file
+ */
 void modify_file(struct thread_args *args, char *name){
+	char *crow = malloc(10*sizeof(char));
 	char *message = malloc(BUFF_SIZE_INPUT*sizeof(char));
 	memset(message, 0, BUFF_SIZE_INPUT*sizeof(char));
+	memset(crow, 0, 10*sizeof(char));
+
 	strcat(message, PROT_MOD);
 	strcat(message, " ");
+	strcat(message, "files/");
 	strcat(message, name);
+	strcat(message, " ");
+	sprintf(crow, "%d", row - 1); //-1 to give room for user input afterwards
+	strcat(message, crow);
 
 	send_msg(args, message);
 }
 
+/*
+ * Format a message to modify a file
+ */
 void delete_file(struct thread_args *args, char *name){
 	char *message = malloc(BUFF_SIZE_INPUT*sizeof(char));
 	memset(message, 0, BUFF_SIZE_INPUT*sizeof(char));

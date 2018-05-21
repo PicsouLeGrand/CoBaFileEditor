@@ -13,7 +13,7 @@
 #include <signal.h>
 #include <dirent.h>
 
-#define MAX_CLIENTS 2
+#define MAX_CLIENTS 3
 #define MAX_PINGS 3
 #define PING_INTERVAL 2
 
@@ -44,18 +44,27 @@
 #define PROT_MOD "mod?"
 #define PROT_MOD_R "mod!"
 
+#define CURSES_DEL "dlg?"
+#define CURSES_DEL_R "dlg!"
+#define CURSES_INS "ilg?"
+#define CURSES_INS_R "ilg!"
+
 #define ERR_MSG_1 "maximum number of clients reached. Try again later."
 #define ERR_MSG_2 "error while creating the file, perhaps it exists already?"
 #define ERR_MSG_3 "error while deleting the file, perhaps it's already deleted."
 #define ERR_MSG_4 "error while opening the file, perhaps it doesn't exists?"
 
 #define SPECIAL_SEPARATOR "\t" //special character used to split messages when several are received at the same time
+#define SPECIAL_EOF "~#{[|``|[{#~" //special char used for synchronization in ncurses mode
 
 struct client {
+	//int sock;
 	int id;
 	int port; //port of user
 	char *ip; //ip of user
-	int nb_open_files; 
+	int nb_open_files;
+	char *file; //current file 
+	char *height; //height of terminal
 	int is_modifying;
 	int line_nb; //if modifying, which line
 	int unanswered_pings; //usually worth 1 because of implementation
@@ -69,10 +78,12 @@ struct thread_args {
 
 extern int fd;
 extern int NB_CLIENTS;
+extern pthread_mutex_t mutex;
 struct client clients[MAX_CLIENTS];
+struct thread_args *global_args[MAX_CLIENTS];
 
 void *pingUDP();
-void add_client(struct client new_client);
+void add_client(struct client new_client, struct thread_args *args);
 void remove_client(struct client old_client);
 void print_client(struct client c);
 void print_all_clients();
@@ -86,3 +97,9 @@ int send_err(int sock, char *message);
 
 void write_to_log(struct client c, char *msg);
 void deformatage(struct thread_args *args);
+void modification(struct thread_args *args, char *tail, char *after);
+void liste_users(struct thread_args *args, char *buff);
+void liste_files(struct thread_args *args, char *buff);
+void curses_line_delete(struct thread_args *args, char *buff, char *tail);
+void curses_line_insert(struct thread_args *args, char *buff, char *tail);
+void send_modifs_to_all(struct thread_args *args);

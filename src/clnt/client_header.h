@@ -53,11 +53,21 @@
 #define CMD_MODI_SHORT "m"
 #define CMD_DELE_SHORT "d"
 
+#define CURSES_CMD_DEL "d"
+#define CURSES_CMD_INS "i"
+
+#define CURSES_DEL "dlg?"
+#define CURSES_DEL_R "dlg!"
+#define CURSES_INS "ilg?"
+#define CURSES_INS_R "ilg!"	
+
 #define SPECIAL_SEPARATOR "\t" //special character used to split messages when several are received at the same time
+#define SPECIAL_EOF "~#{[|``|[{#~" //special char used for synchronization in ncurses mode
 
 #define ERR_MSG_1 "maximum number of clients reached. Try again later."
 #define ERR_MSG_2 "error while creating the file, perhaps it exists already?"
 #define ERR_MSG_3 "> Error, you need to specify a filename\n"
+#define ERR_MSG_4 "> Error, you need to specify a line number"
 
 struct thread_args {
 	int sock;
@@ -73,6 +83,7 @@ void *gestion_recv(void *t_args);
 
 void deformatage(struct thread_args *args, char *buff);
 void input_deformatage(struct thread_args *args, char *input);
+void curses_deformatage(struct thread_args *args, char *input);
 
 void quitter(struct thread_args *args);
 void print_help();

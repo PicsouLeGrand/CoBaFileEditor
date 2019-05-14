@@ -3,8 +3,8 @@
 /*
  * TODO
  *
- * 
- * 
+ *
+ *
  * TODO
  */
 
@@ -25,10 +25,10 @@ void *client_mainloop(void *t_args) {
 
 	add_client(args->c, args);
 	send_welco(args);
-	
+
 	NB_CLIENTS++;
 	//print_all_clients();
-	
+
 	while(1){
 		deformatage(args);
 	}
@@ -50,7 +50,7 @@ void *pingUDP(){
 	//memset(&hints, 0, sizeof(struct addrinfo));
 	//hints.ai_family = AF_INET;
 	//hints.ai_socktype = SOCK_DGRAM;
-	
+
 	if(getaddrinfo(ADDR_MULTICAST, PORT_SERV_UDP, NULL, &first_info) != 0){
 		perror("getaddrinfo UDP error");
 		exit(EXIT_FAILURE);
@@ -136,7 +136,7 @@ void print_all_clients(){
 		if(clients[i].port > -1){
 			print_client(clients[i]);
 			printf("---------------------------------------\n");
-		
+
 		}
 	}
 }
@@ -187,7 +187,7 @@ int main(){
 
 	socklen_t size;
 	pthread_t thread_UDP;
-	
+
 	struct sockaddr_in address_sock;
 	struct sockaddr_in caller;
 	struct thread_args *t_args;
@@ -212,7 +212,7 @@ int main(){
 	address_sock.sin_family = AF_INET;
 	address_sock.sin_port = htons(PORT_SERV_TCP);
 	address_sock.sin_addr.s_addr = htonl(INADDR_ANY);
-	
+
 	size = sizeof(caller);
 
 	if(bind(sock, (struct sockaddr *) &address_sock, sizeof(struct sockaddr_in)) != 0) {
@@ -229,7 +229,7 @@ int main(){
 		perror("pthread error 1");
 		exit(EXIT_FAILURE);
 	}
-	
+
 	empty_client = create_empty_client();
 	for(i = 0; i < MAX_CLIENTS; i++)
 		clients[i] = empty_client;
@@ -239,7 +239,7 @@ int main(){
 			perror("accept error");
 			exit(EXIT_FAILURE);
 		}
-		
+
 		if(NB_CLIENTS == MAX_CLIENTS){
 			send_err(sock2, ERR_MSG_1);
 			//No need to remove the client from the master list, he's not yet added
@@ -254,7 +254,7 @@ int main(){
 			}
 		}
 		struct client new_client = create_client(caller);
-		
+
 		//fill the struct with the right informations
 		t_args = malloc(sizeof(struct thread_args));
 		memset(t_args, 0, sizeof(struct thread_args));
@@ -269,8 +269,6 @@ int main(){
 			perror("pthread error 2");
 			exit(EXIT_FAILURE);
 		}
-		
-		
 	}
 
 	close(sock2);

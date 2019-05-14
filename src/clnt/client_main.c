@@ -23,11 +23,11 @@ void *gestion_recv(void *t_args){
 	int received;
 	char buff[BUFF_SIZE_MEDIUM];
 	int first_time = 1;
-	
+
 	while(1){
 		received = read(args->sock, buff, BUFF_SIZE_MEDIUM*sizeof(char));
 		buff[received] = '\0';
-		
+
 		if(first_time){
 			send_msg(t_args, PROT_CON);
 			first_time = 0;
@@ -57,7 +57,7 @@ void *gestion_ping(){
 
 	args = malloc(sizeof(struct thread_args *));
 	args->sock = sock_global;
-	
+
 	ok = 1;
 	sock = socket(PF_INET, SOCK_DGRAM, 0);
 
@@ -77,7 +77,7 @@ void *gestion_ping(){
 
 	mreq.imr_multiaddr.s_addr = inet_addr(ADDR_MULTICAST);
 	mreq.imr_interface.s_addr = htonl(INADDR_ANY);
-	
+
 	if(setsockopt(sock, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) != 0) {
 		perror("setsockopt error 2");
 		exit(EXIT_FAILURE);
@@ -101,11 +101,11 @@ int main(int argc, char** argv){
 	struct thread_args *t_args;
 	pthread_t threadUDP;
 	pthread_t threadRecv;
-	
+
 	char *input;
 
 	if(argc != 2){
-		fprintf(stderr, "usage : ./client_main address");
+		fprintf(stderr, "usage : ./client address");
 		exit(EXIT_FAILURE);
 	}
 
@@ -156,7 +156,7 @@ int main(int argc, char** argv){
 		input_deformatage(t_args, input);
 
 	}
-	
+
 	close(sock_global);
 
 	return 0;

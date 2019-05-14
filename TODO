@@ -1,3 +1,4 @@
 * Correct ncurses bugs
+* Refactor the code
 * Add a debug mode
 * Upgrade the file editing

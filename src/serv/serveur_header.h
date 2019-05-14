@@ -65,7 +65,7 @@ struct client {
 	int port; //port of user
 	char *ip; //ip of user
 	int nb_open_files;
-	char *file; //current file 
+	char *file; //current file
 	char *height; //height of terminal
 	int is_modifying;
 	int line_nb; //if modifying, which line

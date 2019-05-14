@@ -144,9 +144,9 @@ void liste_users(struct thread_args *args, char *buff){
 	strcat(liste, nb_clients);
 	strcat(liste, " client(s)\n");
 	strcat(liste, SPECIAL_SEPARATOR);
-			
+
 	send_msg(args, liste);
-	
+
 	for(i = 0; i < NB_CLIENTS; i++){
 		memset(info_client, 0, BUFF_SIZE_RECV*sizeof(char));
 		strcat(info_client, PROT_LST_R);
@@ -190,7 +190,7 @@ void liste_files(struct thread_args *args, char *buff){
 			}
 		}
 		closedir(d);
-	}	
+	}
 }
 
 /*
@@ -210,7 +210,7 @@ void curses_line_delete(struct thread_args *args, char *buff, char *tail){
 
 	write_to_log(args->c, buff);
 	printf("> %s | %d ==> line deletion [CURSES]\n", args->c.ip, args->c.port);
-		
+
 
 	pthread_mutex_lock(&mutex);
 	//open the file for replication
@@ -261,7 +261,7 @@ void curses_line_insert(struct thread_args *args, char *buff, char *tail){
 
 	write_to_log(args->c, buff);
 	printf("> %s | %d ==> line insertion [CURSES]\n", args->c.ip, args->c.port);
-		
+
 
 	pthread_mutex_lock(&mutex);
 	//open the file for replication
@@ -293,7 +293,7 @@ void curses_line_insert(struct thread_args *args, char *buff, char *tail){
 	//if tail is null then insert at the end of file
 	if(tail == NULL)
 		write(replica_fd, "\n", 1);
-	
+
 	close(replica_fd);
 	close(path_fd);
 	remove(args->c.file);
@@ -324,7 +324,7 @@ void curses_line_modification(struct thread_args *args, char *buff, char *tail, 
 
 	write_to_log(args->c, buff);
 	printf("> %s | %d ==> line modification [CURSES]\n", args->c.ip, args->c.port);
-		
+
 
 	pthread_mutex_lock(&mutex);
 	//open the file for replication
@@ -368,7 +368,7 @@ void send_modifs_to_all(struct thread_args *args){
 	char *path;
 
 	path = malloc(BUFF_SIZE_RECV*sizeof(char));
-	
+
 	strcpy(path, args->c.file);
 	strtok(path, "/");
 	path = strtok(NULL, "");
@@ -419,21 +419,21 @@ void deformatage(struct thread_args *args){
 		} else {
 			//not supposed to happen
 		}
-		
+
 		if(strcmp(buff, PROT_PNG_R) == 0){
 			//printf("> Ping response from : %s and port : %d\n", inet_ntoa(args->caller.sin_addr),
 			//args->caller.sin_port);
 			clients[args->c.id].unanswered_pings = 0;
 		} else if(strcmp(buff, PROT_CON) == 0) {
 			printf("> %s | %d --> registration\n", args->c.ip, args->c.port);
-			
+
 			//for log purposes
 			write_to_log(args->c, buff);
 		} else if(strcmp(buff, PROT_QUI) == 0) {
 			printf("> %s | %d --> disconnection\n", args->c.ip, args->c.port);
 			send_msg(args, PROT_QUI_R);
 			remove_client(args->c);
-			
+
 			//for log purposes
 			write_to_log(args->c, buff);
 		} else if(strcmp(buff, PROT_LST) == 0) {

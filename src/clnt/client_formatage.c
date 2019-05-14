@@ -18,7 +18,7 @@ pthread_cond_t condition2 = PTHREAD_COND_INITIALIZER;
 
 /*
  * Send a message through the global TCP socket to the server
- */ 
+ */
 void send_msg(struct thread_args *args, char *msg){
 	char *res;
 
@@ -47,7 +47,7 @@ void deformatage(struct thread_args *args, char *buff){
 	strcpy(original, buff);
 	head = strtok(buff, " ");
 	tail = strtok(NULL, SPECIAL_SEPARATOR);
-	
+
 	getmaxyx(stdscr, row, col);
 
 	// printf("o %s\n", original);
@@ -66,7 +66,7 @@ void deformatage(struct thread_args *args, char *buff){
 
 		if(strcmp(tail, ERR_MSG_1) == 0)
 			quitter(args);
-	} else if(strcmp(head, PROT_QUI_R) == 0) { 
+	} else if(strcmp(head, PROT_QUI_R) == 0) {
 		quitter(args);
 	} else if(strcmp(head, PROT_LST_R) == 0) {
 		fprintf(stdout, "> %s", tail);
@@ -106,7 +106,7 @@ void deformatage(struct thread_args *args, char *buff){
 	} else {
 		// fprintf(stderr, "Unrecognized : %s\n", original);
 	}
-	
+
 
 	if((after = strtok(NULL, "\0")) != NULL)
 		deformatage(args, after);
@@ -172,7 +172,7 @@ void input_deformatage(struct thread_args *args, char *input){
 					refresh();
 				}
 
-				
+
 				endwin();
 			} else
 				fprintf(stderr, "%s", ERR_MSG_3);
@@ -245,7 +245,7 @@ void curses_deformatage(struct thread_args *args, char *input){
 	}
 }
 
-/* 
+/*
  * Display the help message
  */
 void print_help(){

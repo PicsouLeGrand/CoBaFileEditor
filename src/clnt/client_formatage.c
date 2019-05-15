@@ -97,6 +97,7 @@ void deformatage(struct thread_args *args, char *buff){
 			before = 0;
 			line_number = 1;
 		} else {
+			/* TODO correctly print lines above ten (shift) */
 			printw("%d | %s", line_number, tail);
 			line_number++;
 		}
@@ -136,56 +137,58 @@ void input_deformatage(struct thread_args *args, char *input){
 	head = strtok(input, " ");
 	tail = strtok(NULL, "\n");
 
-	if(head != NULL && strcmp(original, "\n") != 0 && strcmp(head, "\t") != 0){
-		if(strcmp(head, CMD_QUIT) == 0 || strcmp(head, CMD_EXIT) == 0) {
-			send_msg(args, PROT_QUI);
-		} else if(strcmp(head, CMD_LSTU) == 0 || strcmp(head, CMD_LSTU_SHORT) == 0) {
-			send_msg(args, PROT_LST);
-		} else if(strcmp(head, CMD_HELP) == 0 || strcmp(head, CMD_HELP_SHORT) == 0) {
-			print_help();
-		} else if(strcmp(head, CMD_CREA) == 0 || strcmp(head, CMD_CREA_SHORT) == 0) {
-			if(tail != NULL)
-				create_file(args, tail);
-			else
-				fprintf(stderr, "%s", ERR_MSG_3);
-		} else if(strcmp(head, CMD_MODI) == 0 || strcmp(head, CMD_MODI_SHORT) == 0) {
-			if(tail != NULL) {
-				pthread_mutex_lock(&mutex2);
-				if(s == NULL){
-					s = newterm(NULL, stdout, stdin);
-					raw();
-					keypad(stdscr, TRUE);
-					getmaxyx(stdscr, row, col);
-					started = 1;
-				}
-				pthread_mutex_unlock(&mutex2);
+	if(head == NULL && strcmp(original, "\n") == 0 && strcmp(head, "\t") == 0) {
+		return;
+	}
 
-				modify_file(args, tail);
+	if(strcmp(head, CMD_QUIT) == 0 || strcmp(head, CMD_EXIT) == 0) {
+		send_msg(args, PROT_QUI);
+	} else if(strcmp(head, CMD_LSTU) == 0 || strcmp(head, CMD_LSTU_SHORT) == 0) {
+		send_msg(args, PROT_LST);
+	} else if(strcmp(head, CMD_HELP) == 0 || strcmp(head, CMD_HELP_SHORT) == 0) {
+		print_help();
+	} else if(strcmp(head, CMD_CREA) == 0 || strcmp(head, CMD_CREA_SHORT) == 0) {
+		if(tail != NULL)
+			create_file(args, tail);
+		else
+			fprintf(stderr, "%s", ERR_MSG_3);
+	} else if(strcmp(head, CMD_MODI) == 0 || strcmp(head, CMD_MODI_SHORT) == 0) {
+		if(tail != NULL) {
+			pthread_mutex_lock(&mutex2);
+			if(s == NULL){
+				s = newterm(NULL, stdout, stdin);
+				raw();
+				keypad(stdscr, TRUE);
+				getmaxyx(stdscr, row, col);
+				started = 1;
+			}
+			pthread_mutex_unlock(&mutex2);
 
-				while(strcmp(ninput, "exit") != 0 && strcmp(ninput, "quit") != 0){
-					move(y, 0); //move to the end of file print
-					clrtoeol(); //clear the line
-					refresh();
-					before = 0;
-					getstr(ninput); //get user input
-					curses_deformatage(args, ninput);
-					refresh();
-				}
+			modify_file(args, tail);
+
+			while(strcmp(ninput, "exit") != 0 && strcmp(ninput, "quit") != 0){
+				move(y, 0); //move to the end of file print
+				clrtoeol(); //clear the line
+				refresh();
+				before = 0;
+				getstr(ninput); //get user input
+				curses_deformatage(args, ninput);
+				refresh();
+			}
 
 
-				endwin();
-			} else
-				fprintf(stderr, "%s", ERR_MSG_3);
-		} else if(strcmp(head, CMD_DELE) == 0 || strcmp(head, CMD_DELE_SHORT) == 0) {
-			if(tail != NULL)
-				delete_file(args, tail);
-			else
-				fprintf(stderr, "%s", ERR_MSG_3);
-		} else if(strcmp(head, CMD_LSTF) == 0 || strcmp(head, CMD_LSTF_SHORT) == 0) {
-			send_msg(args, PROT_LFI);
-		} else {
-			fprintf(stderr, "\r> Command not recognized : %s\n", original);
-		}
+			endwin();
+		} else
+			fprintf(stderr, "%s", ERR_MSG_3);
+	} else if(strcmp(head, CMD_DELE) == 0 || strcmp(head, CMD_DELE_SHORT) == 0) {
+		if(tail != NULL)
+			delete_file(args, tail);
+		else
+			fprintf(stderr, "%s", ERR_MSG_3);
+	} else if(strcmp(head, CMD_LSTF) == 0 || strcmp(head, CMD_LSTF_SHORT) == 0) {
+		send_msg(args, PROT_LFI);
+	} else {
+		fprintf(stderr, "\r> Command not recognized : %s\n", original);
 	}
 }
 

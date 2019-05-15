@@ -63,20 +63,24 @@ void *pingUDP(){
 
 	saddr = first_info->ai_addr;
 	while(1){
-		if(sendto(sock, png, strlen(png), 0, saddr, (socklen_t) sizeof(struct sockaddr_in)) == -1)
+		if(sendto(sock, png, strlen(png), 0, saddr,
+				(socklen_t) sizeof(struct sockaddr_in)) == -1)
 			perror("sendto");
 
 		//print_all_clients();
 		sleep(PING_INTERVAL);
 		for(i = 0; i < NB_CLIENTS; i++){
-			if(clients[i].id != -1){
-				clients[i].unanswered_pings++;
-				if(clients[i].unanswered_pings >= MAX_PINGS){
-					printf("> %s | %d --> AFK\n", clients[i].ip, clients[i].port);
-					write_to_log(clients[i], "AFK");
-					remove_client(clients[i]);
-				}
-			}
+			if(clients[i].id == -1)
+				continue;
+
+			clients[i].unanswered_pings++;
+
+			if(clients[i].unanswered_pings <= MAX_PINGS)
+				continue;
+
+			printf("> %s | %d --> AFK\n", clients[i].ip, clients[i].port);
+			write_to_log(clients[i], "AFK");
+			remove_client(clients[i]);
 		}
 
 	}
@@ -136,7 +140,6 @@ void print_all_clients(){
 		if(clients[i].port > -1){
 			print_client(clients[i]);
 			printf("---------------------------------------\n");
-
 		}
 	}
 }
@@ -235,14 +238,17 @@ int main(){
 		clients[i] = empty_client;
 
 	while(1){
-		if((sock2 = accept(sock, (struct sockaddr *) &caller, &size)) == -1){
+		if((sock2 = accept(sock, (struct sockaddr *) &caller, &size)) == -1) {
 			perror("accept error");
 			exit(EXIT_FAILURE);
 		}
 
 		if(NB_CLIENTS == MAX_CLIENTS){
 			send_err(sock2, ERR_MSG_1);
-			//No need to remove the client from the master list, he's not yet added
+			/*
+			 * No need to remove the client from the master list,
+			 * he's not yet added
+			 */
 			continue;
 		}
 
@@ -265,7 +271,8 @@ int main(){
 		printf("> A new client wants to connect, launching thread.\n");
 
 		//launch a thread for the new client
-		if(pthread_create(&threads_clients[new_client.id], NULL, client_mainloop, (void *) t_args) != 0){
+		if(pthread_create(&threads_clients[new_client.id],
+				NULL, client_mainloop, (void *) t_args) != 0) {
 			perror("pthread error 2");
 			exit(EXIT_FAILURE);
 		}

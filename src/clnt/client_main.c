@@ -105,7 +105,7 @@ int main(int argc, char** argv){
 	char *input;
 
 	if(argc != 2){
-		fprintf(stderr, "usage : ./client address");
+		fprintf(stderr, "usage : ./client [address]\n");
 		exit(EXIT_FAILURE);
 	}
 
@@ -133,6 +133,7 @@ int main(int argc, char** argv){
 	addressin = (struct sockaddr_in *) first_info->ai_addr;
 
 	if(connect(sock_global, (struct sockaddr *) addressin, (socklen_t) sizeof(struct sockaddr_in)) != 0) {
+		/* TODO pretty error on no server found */
 		perror("connect error");
 		exit(EXIT_FAILURE);
 	}

@@ -14,7 +14,7 @@
 #include <dirent.h>
 
 #define MAX_CLIENTS 3
-#define MAX_PINGS 3
+#define MAX_PINGS 4
 #define PING_INTERVAL 2
 
 #define PORT_SERV_TCP 9001

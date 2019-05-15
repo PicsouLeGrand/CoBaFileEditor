@@ -1,4 +1,15 @@
 * Correct ncurses bugs
+* On server disconnect, send a last message so clients know they are
+	disconnected
 * Refactor the code
 * Add a debug mode
+* Add option to open any file
 * Upgrade the file editing
+	- can scroll down
+	- better line modification
+
+############## Known bugs ###############
+* segfault when deleting a file
+* sometimes false afk detect
+* ncurses wrong clear screen
+* if start then stop server then 'bind error'

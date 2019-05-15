@@ -92,29 +92,30 @@ void modification(struct thread_args *args, char *tail, char *after){
 
 	strcpy(args->c.file, tail);
 
-	if((fd = open(tail, O_RDWR, 0755)) != -1){
-		while (read(fd, c, 1) != 0 && rows != 0){
-			strcat(line, c);
-			if(strcmp(c,"\n") == 0) {
-				strcat(msg, PROT_MOD_R);
-				strcat(msg, " ");
-				strcat(msg, line);
-				strcat(msg, SPECIAL_SEPARATOR);
-				send_msg(args, msg);
-				memset(msg, 0, sizeof(msg));
-				memset(line, 0, sizeof(line));
-				rows--;
-			}
-		}
-		strcat(msg, PROT_MOD_R);
-		strcat(msg, " ");
-		strcat(msg, SPECIAL_EOF);
-		send_msg(args, msg);
-
-	} else {
+	if((fd = open(tail, O_RDWR, 0755)) == -1){
 		perror("open mod");
 		send_err(args->sock2, ERR_MSG_4);
+		return;
 	}
+
+	while (read(fd, c, 1) != 0 && rows != 0){
+		strcat(line, c);
+		if(strcmp(c,"\n") == 0) {
+			strcat(msg, PROT_MOD_R);
+			strcat(msg, " ");
+			strcat(msg, line);
+			strcat(msg, SPECIAL_SEPARATOR);
+			send_msg(args, msg);
+			memset(msg, 0, sizeof(msg));
+			memset(line, 0, sizeof(line));
+			rows--;
+		}
+	}
+
+	strcat(msg, PROT_MOD_R);
+	strcat(msg, " ");
+	strcat(msg, SPECIAL_EOF);
+	send_msg(args, msg);
 }
 
 /*
